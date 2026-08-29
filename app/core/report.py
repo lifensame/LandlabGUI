@@ -33,7 +33,7 @@ def generate_report(ws: Workspace, wf: dict, out_dir: str, log=print) -> str:
         raise RuntimeError("尚无网格，无法生成报告")
     os.makedirs(out_dir, exist_ok=True)
     g = ws.grid
-    z = ws.at_node.get("topographic__elevation")
+    z = Workspace.field_or_none(ws.at_node, "topographic__elevation")
 
     # ---- 图组 ----
     imgs = []

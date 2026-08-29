@@ -48,7 +48,7 @@ def draw_slope_area(ax, ws, color="#3daee9"):
     """坡度-面积散点（对数坐标）。返回 True 表示有数据。"""
     ok = False
     if ws.has_grid and "drainage_area" in ws.at_node \
-            and ws.at_node.get("topographic__elevation") is not None:
+            and "topographic__elevation" in ws.at_node:
         try:
             slope = ws.grid.calc_slope_at_node()
             a = ws.at_node["drainage_area"]
@@ -95,7 +95,7 @@ def draw_river_profile(ax, ws, color="#e05c5c"):
     """最长河道纵剖面（沿 flow__receiver_node 链）。返回 True 表示有数据。"""
     ok = False
     if ws.has_grid and "flow__receiver_node" in ws.at_node \
-            and ws.at_node.get("topographic__elevation") is not None:
+            and "topographic__elevation" in ws.at_node:
         try:
             g = ws.grid
             z = ws.at_node["topographic__elevation"]

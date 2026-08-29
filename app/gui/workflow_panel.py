@@ -141,8 +141,8 @@ class WorkflowPanel(QWidget):
             b.clicked.connect(fn)
             btns.addWidget(b)
         vs.addLayout(btns)
-        hint = QLabel("双击步骤编辑参数；分析类组件自动设为\"结束一次\"；"
-                      "在左侧组件库双击任意组件/插件即可添加步骤")
+        hint = QLabel(tr("双击步骤编辑参数；分析类组件自动设为\"结束一次\"；"
+                         "在左侧组件库双击任意组件/插件即可添加步骤"))
         hint.setWordWrap(True)
         vs.addWidget(hint)
         root.addWidget(gb_s, stretch=1)
@@ -227,7 +227,7 @@ class WorkflowPanel(QWidget):
         self.step_list.clear()
         for i, s in enumerate(self.steps):
             name = s.get("component") or s.get("plugin") or "?"
-            tag = "组件" if s["kind"] == "component" else "插件"
+            tag = tr("组件") if s["kind"] == "component" else tr("插件")
             display = i18n.display_name(name) if s["kind"] == "component" else name
             item = QListWidgetItem(
                 f"{i + 1}. [{tag}] {display}  —  {_when_disp(s.get('when', 'every_step'))}")

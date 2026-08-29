@@ -121,7 +121,8 @@ class CanvasPanel(QTabWidget):
         if not ws.has_grid:
             return
         grid = ws.grid
-        z = ws.at_node.get("topographic__elevation")
+        z = (ws.at_node["topographic__elevation"]
+             if "topographic__elevation" in ws.at_node else None)
         if z is None:
             return
         ax = self.tab_terrain.ax
@@ -177,7 +178,9 @@ class CanvasPanel(QTabWidget):
             return
         tab = self.tab_3d
         tab.ax.clear()
-        z = z if z is not None else ws.at_node.get("topographic__elevation")
+        z = z if z is not None else (
+                ws.at_node["topographic__elevation"]
+                if "topographic__elevation" in ws.at_node else None)
         if z is None:
             tab.draw()
             return
@@ -238,7 +241,8 @@ class CanvasPanel(QTabWidget):
             return
         p0, p1 = self._pick_points
         self._pick_points.clear()
-        z = self._ws.at_node.get("topographic__elevation")
+        z = (self._ws.at_node["topographic__elevation"]
+             if "topographic__elevation" in self._ws.at_node else None)
         if z is None:
             return
         dists, elevs = plots.sample_profile(grid, z, p0, p1)

@@ -118,6 +118,7 @@ class Engine:
 
             # 4) 时间循环
             z0 = ws.at_node["topographic__elevation"]
+            ws.dt = dt          # 注入时间步长：插件按 物理量×dt 施加（如抬升 m/yr × dt）
             for i in range(n_steps):
                 if self._stopped():
                     log(tr("用户中断于第 {0}/{1} 步").format(i + 1, n_steps))
@@ -284,9 +285,7 @@ class Engine:
         spec = self.plugins.get(pname)
         if spec is None:
             raise ValueError(f"找不到插件功能: {pname}（是否忘记重载插件？）")
-        spec.fn(self.ws, step.get("params", {}) or {})
-
-    # -------------------------------------------------- 导出
+        spec.fn(self.ws, step.get("params", {}) or {})    # -------------------------------------------------- 导出
     def _export(self, cfg: dict):
         from .exporter import export_all
         from .plugin_loader import app_root

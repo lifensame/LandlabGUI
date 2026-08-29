@@ -29,6 +29,11 @@ def tectonic_uplift(workspace, params):
     grid = workspace.grid
     if "topographic__elevation" not in grid.at_node:
         raise RuntimeError("网格缺少 topographic__elevation 字段")
+    # 关键1：抬升速率是 m/yr，必须乘以当前时间步长才是一步的抬升量
+    # 关键2：只抬升活动内点 (core nodes)，边界/出水口固定不动 —— 否则基准面
+    #        跟着一起抬升，河流永远不会下切（教程 erosion_model 同款做法）
+    dt = float(getattr(workspace, "dt", 1.0) or 1.0)
+    core = grid.core_nodes
 
     ny = grid.shape[0] if hasattr(grid, "shape") else 0
     nx = grid.shape[1] if hasattr(grid, "shape") else 0
@@ -36,24 +41,24 @@ def tectonic_uplift(workspace, params):
     mode = params.get("mode", "uniform")
 
     if mode == "uniform":
-        z += params.get("rate", 5e-4) * np.ones_like(z)
+        z[core] += params.get("rate", 5e-4) * dt
 
     elif mode == "tibet" and ny > 1:
         # 北侧高抬升、南侧低抬升（教程"青藏高原式"）
         y = np.repeat(np.arange(ny), nx)
         frac = y / (ny - 1)              # 0=南 1=北
-        z += params.get("south", 1e-4) + frac * (params.get("north", 1e-3) - params.get("south", 1e-4))
+        z[core] += (params.get("south", 1e-4) + frac[core] * (params.get("north", 1e-3) - params.get("south", 1e-4))) * dt
 
     elif mode == "gradient" and nx > 1:
         x = np.tile(np.arange(nx), ny)
-        z += params.get("rate", 5e-4) + params.get("gradient", 2e-6) * x
+        z[core] += (params.get("rate", 5e-4) + params.get("gradient", 2e-6) * x[core]) * dt
 
     elif mode == "two_block" and ny > 1:
         y = np.repeat(np.arange(ny), nx)
         frac = y / (ny - 1)
         boundary = params.get("boundary_frac", 0.5)
-        z += np.where(frac >= boundary, params.get("block_high", 1e-3),
-                      params.get("block_low", 2e-4))
+        z[core] += np.where(frac[core] >= boundary, params.get("block_high", 1e-3),
+                            params.get("block_low", 2e-4)) * dt
 
     else:
-        z += params.get("rate", 5e-4) * np.ones_like(z)
+        z[core] += params.get("rate", 5e-4) * dt

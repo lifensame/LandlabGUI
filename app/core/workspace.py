@@ -21,6 +21,8 @@ class Workspace:
         self.components: dict = {}        # 最近一次运行实例化的组件 {step_id: 实例}
         self.history: list = []           # 每次 (步数, 平均高程, 最大高程) 记录
         self.log_fn = print               # GUI 注入的日志函数
+        self.dt = 1.0                     # 当前时间步长(yr)：引擎在时间循环中注入，
+                                          # 插件按 物理量×workspace.dt 施加通量
 
     # ---------- 网格 ----------
     @property
@@ -42,6 +44,11 @@ class Workspace:
 
     def get_field(self, name: str, at: str = "node") -> np.ndarray:
         return self.grid.at_node[name] if at == "node" else getattr(self.grid, f"at_{at}")[name]
+
+    @staticmethod
+    def field_or_none(container, name: str):
+        """landlab FieldDataset.get() 存在已知问题（键存在也返回 None），统一用 in+[] 读取。"""
+        return container[name] if name in container else None
 
     def ensure_field(self, name: str, at: str = "node", dtype=float, value=0.0):
         """确保字段存在，不存在则创建（供引擎自动补必填字段）。"""

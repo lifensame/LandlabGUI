@@ -12,6 +12,16 @@ A visual desktop workbench for the [Landlab](https://landlab.csdms.io/) landscap
 
 不用写代码即可搭建地貌演化模拟工作流：**建网格 → 组合过程组件 → 时间循环 → 可视化 → 导出 GIS/3D 数据**。
 
+## 界面预览 / Screenshots
+
+| 中文主界面（75万年构造抬升+河流下切后） | English UI |
+|---|---|
+| ![中文主界面](docs/screenshots/main_zh.png) | ![English UI](docs/screenshots/main_en.png) |
+
+| 参数扫描批量实验 | 在线真实DEM下载 |
+|---|---|
+| ![参数扫描](docs/screenshots/sweep.png) | ![在线DEM](docs/screenshots/dem.png) |
+
 ## 核心特性
 
 - **全量 87 个 landlab 组件**：自省引擎自动读取每个组件的构造参数、docstring 文档和
