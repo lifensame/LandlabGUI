@@ -1,0 +1,9 @@
+__pycache__/
+build/
+dist/
+*.spec
+gui_results*/
+app/core/components_cache.json
+sweep_results*/
+export/
+*.pyc
