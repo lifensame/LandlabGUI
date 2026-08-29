@@ -7,3 +7,4 @@ app/core/components_cache.json
 sweep_results*/
 export/
 *.pyc
+*.zip
