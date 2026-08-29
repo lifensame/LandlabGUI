@@ -150,14 +150,20 @@ class ParamForm(QWidget):
             vbox.addLayout(form)
             return form
 
-        # ---- 布局策略：参数少→单表单；多且已汉化→核心/高级 分组折叠 ----
+        # ---- 布局策略：参数少→单表单；参数多→核心/高级 分组折叠 ----
+        # 核心组的构成：优先取有中文释义的参数；释义不足 4 个时用构造签名顺序的
+        # 前 8 个兜底（landlab 签名把重要参数排在前面），绝不让长表单整页平铺
         do_split = bool(advanced_split) and len(self.params_def) > 8
         core_defs = adv_defs = []
         if do_split:
-            core_defs = [p for p in self.params_def
-                         if i18n.param_zh_label(comp_name, p.get("name", ""))]
+            zh_hits = [p for p in self.params_def
+                       if i18n.param_zh_label(comp_name, p.get("name", ""))]
+            if len(zh_hits) >= min(4, len(self.params_def)):
+                core_defs = zh_hits
+            else:
+                core_defs = list(self.params_def)[:8]
             adv_defs = [p for p in self.params_def if p not in core_defs]
-            if not core_defs:            # 一个释义都没有就别分组了
+            if not adv_defs:             # 全是核心 → 不分组
                 core_defs, adv_defs = list(self.params_def), []
 
         if adv_defs:
