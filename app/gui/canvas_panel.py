@@ -110,57 +110,69 @@ class CanvasPanel(QTabWidget):
         self._picking = False
         self._pick_points = []
         self._custom_profiles = []          # [(label, dists, elevs)]
-        self._3d_dirty = False              # 3D 惰性渲染标记
+        self._dirty = set(range(6))         # 待刷新标签页（性能：只画可见页）
         self.currentChanged.connect(self._on_tab_changed)
         for tab in (self.tab_terrain, self.tab_area):
             tab.canvas.mpl_connect("button_press_event", self._on_click)
 
     # ================================================= 更新
+    # 性能模型：update_all 只渲染"当前可见的标签页"，其余标记待刷新，
+    # 切到时按需渲染（_on_tab_changed）。6 视图全部重画是卡顿根源。
     def update_all(self, ws, note: str = ""):
         self._ws = ws
         if not ws.has_grid:
             return
-        grid = ws.grid
-        z = (ws.at_node["topographic__elevation"]
-             if "topographic__elevation" in ws.at_node else None)
-        if z is None:
+        if not ("topographic__elevation" in ws.at_node):
             return
-        ax = self.tab_terrain.ax
-        ax.clear()
-        plots.draw_field(ax, grid, z, colorbar_fig=self.tab_terrain.fig)
-        self._draw_custom_profile_lines(ax, grid)
-        self.tab_terrain.draw()
+        idx = self.currentIndex()
+        self._render_tab(idx)
+        for i in range(self.count()):
+            if i != idx:
+                self._dirty.add(i)
 
-        ax = self.tab_area.ax
-        ax.clear()
-        if "drainage_area" in ws.at_node:
-            plots.draw_field(ax, grid, np.log10(np.maximum(ws.at_node["drainage_area"], 1.0)),
-                             cmap="viridis", colorbar_fig=self.tab_area.fig)
-        else:
-            ax.text(0.5, 0.5, tr("运行含汇流组件后显示"), transform=ax.transAxes,
-                    ha="center", va="center", color="gray")
-        self.tab_area.draw()
-
-        self.tab_slope_area.ax.clear()
-        plots.draw_slope_area(self.tab_slope_area.ax, ws)
-        self.tab_slope_area.draw()
-
-        self._render_profile_tab()
-
-        self.tab_history.ax.clear()
-        plots.draw_history(self.tab_history.ax, ws)
-        self.tab_history.draw()
-
-        # 3D 渲染开销大：仅在 3D 标签页可见时实时渲染，否则标记待刷新
-        if self.currentWidget() is self.tab_3d:
-            self._render_3d(z)
-        else:
-            self._3d_dirty = True
-
-    def _on_tab_changed(self, _idx):
-        if self.currentWidget() is self.tab_3d and self._3d_dirty:
+    def _render_tab(self, idx: int):
+        """渲染指定标签页（只画看得到的那个）。"""
+        self._dirty.discard(idx)
+        ws = self._ws
+        if ws is None or not ws.has_grid:
+            return
+        if not ("topographic__elevation" in ws.at_node):
+            return
+        grid = ws.grid
+        z = ws.at_node["topographic__elevation"]
+        if idx == 0:
+            ax = self.tab_terrain.ax
+            ax.clear()
+            plots.draw_field(ax, grid, z, colorbar_fig=self.tab_terrain.fig)
+            self._draw_custom_profile_lines(ax, grid)
+            self.tab_terrain.draw()
+        elif idx == 1:
+            ax = self.tab_area.ax
+            ax.clear()
+            if "drainage_area" in ws.at_node:
+                plots.draw_field(ax, grid, np.log10(np.maximum(ws.at_node["drainage_area"], 1.0)),
+                                 cmap="viridis", colorbar_fig=self.tab_area.fig)
+            else:
+                ax.text(0.5, 0.5, tr("运行含汇流组件后显示"), transform=ax.transAxes,
+                        ha="center", va="center", color="gray")
+            self.tab_area.draw()
+        elif idx == 2:
+            self.tab_slope_area.ax.clear()
+            plots.draw_slope_area(self.tab_slope_area.ax, ws)
+            self.tab_slope_area.draw()
+        elif idx == 3:
+            self._render_profile_tab()
+        elif idx == 4:
+            self.tab_history.ax.clear()
+            plots.draw_history(self.tab_history.ax, ws)
+            self.tab_history.draw()
+        elif idx == 5:
             self._3d_dirty = False
             self._render_3d()
+
+    def _on_tab_changed(self, idx):
+        if idx in self._dirty:
+            self._render_tab(idx)
 
     def _render_profile_tab(self):
         ax = self.tab_profile.ax
@@ -191,9 +203,8 @@ class CanvasPanel(QTabWidget):
         tab.draw()
 
     def refresh_3d_only(self):
-        if self._ws and self._ws.has_grid:
-            self._3d_dirty = False
-            self._render_3d()
+        self._dirty.discard(5)
+        self._render_tab(5)
 
     # ================================================= 点击查值
     def _on_click(self, event):

@@ -424,6 +424,8 @@ for it in range(30):
         break
     if (it + 1) % 10 == 0:
         try:
+            from PySide6.QtWidgets import QApplication
+            app = QApplication.instance() or QApplication(sys.argv)
             win_ref.canvas.setCurrentIndex(0)
             win_ref.canvas.update_all(win_ref.ws)
             for idx in range(win_ref.canvas.count()):

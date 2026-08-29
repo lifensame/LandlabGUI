@@ -10,7 +10,7 @@ import os
 import traceback
 
 import numpy as np
-from PySide6.QtCore import QProcess, QSettings, Qt
+from PySide6.QtCore import QProcess, QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QDockWidget, QFileDialog, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMainWindow, QMenu,
@@ -304,6 +304,14 @@ class MainWindow(QMainWindow):
         self.progress.hide()
         self.statusBar().addPermanentWidget(self.progress)
 
+        # 快照节流：模拟高频快照信号合并到 ≥300ms 一次绘制，
+        # 防止刷新淹没主线程（界面卡顿根源）
+        self._pending_z = None
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.setInterval(300)
+        self._refresh_timer.timeout.connect(self._do_canvas_refresh)
+
     # ================================================== 设置记忆
     def _restore_settings(self):
         geo = self.settings.value("geometry")
@@ -517,11 +525,21 @@ class MainWindow(QMainWindow):
         self.progress.setValue(i)
 
     def _on_snapshot(self, z):
-        """主线程：刷新画布 + 收集动画帧。"""
+        """主线程入口（worker 信号）：只存最新帧并启动节流定时器，
+        真正的绘制在 _do_canvas_refresh 里合并执行。"""
+        self._pending_z = z
+        if not self._refresh_timer.isActive():
+            self._refresh_timer.start()
+
+    def _do_canvas_refresh(self):
+        """节流后的实际绘制（≤3.3 次/秒），期间被跳过的快照直接丢弃。"""
         if not self.ws.has_grid:
+            self._pending_z = None
             return
         self.canvas.update_all(self.ws)
-        self._collect_frame(z)
+        if self._pending_z is not None:
+            self._collect_frame(self._pending_z)
+        self._pending_z = None
 
     def _collect_frame(self, z):
         shape = getattr(self.ws.grid, "shape", None)
