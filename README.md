@@ -76,7 +76,7 @@ landlab_gui/
 │   │   ├── introspection.py   # 87 组件自省引擎 + schema 缓存
 │   │   ├── registry.py        # 内置组件+插件统一目录
 │   │   ├── engine.py          # 工作流执行引擎（时间循环/自动建字段/边界）
-│   │   ├── workspace.py       # 会话状态（网格/字段/历史）
+│   │   ├── workspace.py       # 会话状态（网格/字段/历史/dt 注入）
 │   │   ├── plugin_loader.py   # 插件扫描与热重载
 │   │   ├── exporter.py        # DEM/河网导出（移植自教程 output_module.py）
 │   │   ├── dem_fetch.py       # 在线真实DEM（地名搜索+高程瓦片下载）
@@ -84,19 +84,27 @@ landlab_gui/
 │   │   ├── report.py          # 一键实验报告
 │   │   ├── animate.py         # 演化动画导出
 │   │   ├── plots.py           # 纯 matplotlib 绘图（画布/报告共用）
+│   │   ├── i18n.py            # 中英双语（界面文字 tr 表 + 语言状态）
+│   │   ├── zh_catalog.py      # 87 组件中文名/说明/参数释义目录
 │   │   └── api.py             # @plugin 装饰器
 │   ├── gui/              # PySide6 界面层
 │   │   ├── main_window.py     # 主窗口（菜单/工具栏/四区布局）
 │   │   ├── workflow_panel.py  # 工作流编辑
-│   │   ├── form_builder.py    # schema→动态参数表单
+│   │   ├── form_builder.py    # schema→动态参数表单（核心/高级分组+滚动）
 │   │   ├── grid_dialog.py     # 网格对话框（5 种网格+DEM导入）
-│   │   ├── canvas_panel.py    # matplotlib 画布（5 个视图）
+│   │   ├── canvas_panel.py    # matplotlib 画布（地形/面积/坡度-面积/剖面/历史/3D 六视图）
 │   │   ├── code_editor.py     # 代码编辑器（高亮/运行/另存为插件）
+│   │   ├── export_dialog.py   # 独立导出对话框
+│   │   ├── dem_dialog.py      # 在线DEM下载对话框
+│   │   ├── sweep_dialog.py    # 参数扫描配置与结果窗口
+│   │   ├── history_panel.py   # 运行历史（快照/A-B对比/回滚）
+│   │   ├── wizard.py          # 新手引导向导
+│   │   ├── style.py           # 深色主题（QSS+matplotlib 配色）
 │   │   └── console.py         # 控制台
-│   └── workers/sim_worker.py  # QThread 后台执行
+│   └── workers/sim_worker.py  # QThread 后台执行（模拟/代码/扫描/动画/通用）
 ├── plugins/              # ← 你的插件放这里
 ├── presets/              # 场景预设 JSON
-├── tests/                # 单元测试 (python tests/test_introspection.py)
+├── tests/                # 单元测试 + 4h soak 压测 (tests/soak_test.py, Windows)
 └── docs/                 # 插件开发指南
 ```
 

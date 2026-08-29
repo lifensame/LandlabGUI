@@ -10,3 +10,7 @@ export/
 *.zip
 tests/soak_log.txt
 tests/soak_report.md
+.pytest_cache/
+.venv/
+Thumbs.db
+.DS_Store

@@ -63,12 +63,14 @@ def load_plugins(app_root: str = None, log=print) -> dict:
 
 
 def write_plugin_template(path: str, name: str, code: str):
+    name = name.replace("\\", "_").replace('"', "'")
     """把代码编辑器中的片段另存为插件文件。
 
     编辑器运行上下文提供 grid/at_node/np 等顶层变量，但插件函数只收到
     (workspace, params)，因此模板在函数体内注入等价的初始化行。
     """
-    body = code if "def " in code else None
+    import re as _re
+    body = code if _re.search(r"^def\s+", code, _re.M) else None
     if body:
         # 用户自己定义了函数：原样保留，仅补 import 提示
         template = f'''# 由 Landlab GUI 代码编辑器生成

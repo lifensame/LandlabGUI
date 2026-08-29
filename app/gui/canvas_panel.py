@@ -137,7 +137,7 @@ class CanvasPanel(QTabWidget):
             plots.draw_field(ax, grid, np.log10(np.maximum(ws.at_node["drainage_area"], 1.0)),
                              cmap="viridis", colorbar_fig=self.tab_area.fig)
         else:
-            ax.text(0.5, 0.5, "运行含汇流组件后显示", transform=ax.transAxes,
+            ax.text(0.5, 0.5, tr("运行含汇流组件后显示"), transform=ax.transAxes,
                     ha="center", va="center", color="gray")
         self.tab_area.draw()
 
@@ -187,7 +187,7 @@ class CanvasPanel(QTabWidget):
         plots.draw_3d(tab.ax, ws.grid, z)
         tab.ax.set_xlabel("X (m)")
         tab.ax.set_ylabel("Y (m)")
-        tab.ax.set_zlabel("高程 (m)")
+        tab.ax.set_zlabel(tr("高程 (m)"))
         tab.draw()
 
     def refresh_3d_only(self):

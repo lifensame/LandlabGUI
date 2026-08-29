@@ -33,12 +33,20 @@ class StepEditDialog(QDialog):
         if step.get("kind") == "component":
             step_label = i18n.display_name(step_label)
         self.setWindowTitle(tr("编辑步骤: ") + step_label)
-        self.setMinimumWidth(480)
+        self.resize(560, 640)
+        self.setMinimumWidth(520)
         lay = QVBoxLayout(self)
+        # 参数区放滚动容器：参数再多也不会溢出窗口
+        from PySide6.QtWidgets import QScrollArea
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.form = ParamForm(params_def, field_names, self,
-                              comp_name=step.get("component") or step.get("plugin"))
+                              comp_name=step.get("component") or step.get("plugin"),
+                              advanced_split=(step.get("kind") == "component"))
+        scroll.setWidget(self.form)
+        lay.addWidget(scroll, stretch=1)
         self.form.set_values(step.get("params", {}))
-        lay.addWidget(self.form)
         f = QFormLayout()
         self.when_combo = QComboBox()
         for k, zh in [(k, tr(zh)) for k, zh in _WHEN_LABEL.items()]:
@@ -235,8 +243,8 @@ class WorkflowPanel(QWidget):
             self.step_list.addItem(item)
 
     # ------------------------------------------------ 工作流打包/装载
-    def to_workflow(self, name="未命名") -> dict:
-        wf = {"version": 1, "name": name,
+    def to_workflow(self, name=None) -> dict:
+        wf = {"version": 1, "name": name or tr("未命名"),
               "time": {"dt": float(self.dt.value()), "n_steps": int(self.n_steps.value()),
                        "refresh_every": int(self.refresh_every.value()),
                        "history_every": max(1, int(self.refresh_every.value()) // 2)},

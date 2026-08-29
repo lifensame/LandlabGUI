@@ -273,16 +273,16 @@ class MainWindow(QMainWindow):
         m_help.addAction(act_doc)
         act_about = QAction(tr("关于"), self)
         act_about.triggered.connect(lambda: QMessageBox.about(
-            self, "关于",
-            "<b>Landlab 地貌模拟工作台</b><br>为 Landlab 2.x 打造的可视化模拟器<br><br>"
-            "87 组件全量支持 · 插件系统 · 参数扫描 · 实验报告<br>"
-            "Python 3.14 · PySide6 · Landlab 2.11"))
+            self, tr("关于"),
+            "<b>Landlab Geomorphology Workbench</b><br>" + tr("Landlab 地貌模拟工作台") +
+            "<br><br>87 components · plugins · parameter sweep · reports<br>"
+            "PySide6 · Landlab 2.x"))
         m_help.addAction(act_about)
 
         # ---- 语言切换（组件名/说明 中文 <-> English）----
-        m_lang = m_help.addMenu("🌐 组件显示语言 / Language")
+        m_lang = m_help.addMenu(tr("🌐 组件显示语言 / Language"))
         from ..core import i18n
-        self.act_lang_zh = QAction("中文（组件中文名+中文说明）", self, checkable=True)
+        self.act_lang_zh = QAction(tr("中文（组件中文名+中文说明）"), self, checkable=True)
         self.act_lang_en = QAction("English (original names & docs)", self, checkable=True)
         self.act_lang_zh.triggered.connect(lambda: self.switch_language("zh"))
         self.act_lang_en.triggered.connect(lambda: self.switch_language("en"))
@@ -292,7 +292,7 @@ class MainWindow(QMainWindow):
         self._sync_lang_actions()
 
         # ---- 工具栏 ----
-        tb = self.addToolBar("主工具栏")
+        tb = self.addToolBar(tr("主工具栏"))
         for act in (act_new, self.act_start, self.act_stop, act_export, act_sweep,
                     act_report, act_reload):
             tb.addAction(act)
@@ -380,7 +380,7 @@ class MainWindow(QMainWindow):
                 if cfg.get("terrain"):
                     self.ws.init_terrain(**cfg["terrain"])
             self.canvas.update_all(self.ws)
-            self._set_status(f"网格 {self.ws.grid.number_of_nodes} 节点")
+            self._set_status(tr("网格 {0} 节点").format(self.ws.grid.number_of_nodes))
             self.workflow_panel.set_grid_config(cfg["grid"], cfg.get("terrain"),
                                                 cfg.get("boundary"), from_dialog=True)
             self._frames_clear()
@@ -452,9 +452,9 @@ class MainWindow(QMainWindow):
                                                        "xy_spacing": dx}},
                 None, cfg.get("boundary"), from_dialog=True)
             self._frames_clear()
-            self._set_status(f"真实DEM {z2d.shape[1]}×{z2d.shape[0]} 格")
-            self.log("真实地形已就绪！推荐工作流: 构造抬升(可选) → PriorityFloodFlowRouter "
-                     "→ FastscapeEroder → LinearDiffuser，点 ▶ 运行即可模拟河流切割真实山脉")
+            self._set_status(tr("真实DEM {1}×{0} 格").format(z2d.shape[0], z2d.shape[1]))
+            self.log(tr("真实地形已就绪！推荐工作流: 构造抬升(可选) → PriorityFloodFlowRouter "
+                     "→ FastscapeEroder → LinearDiffuser，点 ▶ 运行即可模拟河流切割真实山脉"))
         except Exception as e:
             QMessageBox.critical(self, tr("建网格失败"), f"{type(e).__name__}: {e}")
             self.log(tr("运行出错") + ":\n" + traceback.format_exc())
@@ -472,7 +472,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, tr("空工作流"),
                                 tr("请在左侧组件库双击组件/插件添加步骤，或载入场景预设"))
             return
-        wf = self.workflow_panel.to_workflow()
+        wf = self.workflow_panel.to_workflow(tr("未命名"))
         self.log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
         self._frames_clear()
         self._current_wf = wf
@@ -602,9 +602,9 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, tr("导出演化动画..."), tr("还没有动画帧：请先运行一次模拟"))
             return
         from ..core.animate import ffmpeg_available
-        flt = "动画 (*.gif);;" + ("MP4 (*.mp4);;" if ffmpeg_available() else "")
-        path, _ = QFileDialog.getSaveFileName(self, "导出演化动画",
-                                              "evolution.gif", flt + "所有文件 (*)")
+        flt = tr("动画 (*.gif)") + ";;" + ("MP4 (*.mp4);;" if ffmpeg_available() else tr("所有文件 (*)"))
+        path, _ = QFileDialog.getSaveFileName(self, tr("导出演化动画"),
+                                              "evolution.gif", flt)
         if not path:
             return
         self.anim_worker = AnimWorker(list(self._frames), path, fps=10)
@@ -614,7 +614,7 @@ class MainWindow(QMainWindow):
         self.anim_worker.start()
 
     def _on_anim_done(self, ok, msg):
-        self.log(msg if ok else f"动画导出失败: {msg}")
+        self.log(msg if ok else tr("导出失败: {0}").format(msg))
         self.anim_worker = None
 
     # ================================================== 参数扫描
@@ -642,7 +642,7 @@ class MainWindow(QMainWindow):
             lambda res: self._open_sweep_result(res, cfg))
         self.progress.setMaximum(0)          # 忙碌指示
         self.progress.show()
-        self.status_label.setText(" " + tr(" 参数扫描中... ").strip() + " ")
+        self.status_label.setText(" " + tr(" 运行中... ").strip() + " ")
         self.sweep_worker.start()
 
     def _on_sweep_progress(self, i, n):
@@ -672,10 +672,10 @@ class MainWindow(QMainWindow):
         if self._busy():
             QMessageBox.warning(self, tr("忙碌"), tr("有任务正在后台运行，请等待完成"))
             return
-        out = QFileDialog.getExistingDirectory(self, "选择报告输出目录", os.getcwd())
+        out = QFileDialog.getExistingDirectory(self, tr("选择报告输出目录"), os.getcwd())
         if not out:
             return
-        wf = self.workflow_panel.to_workflow()
+        wf = self.workflow_panel.to_workflow(tr("未命名"))
         self.func_worker = FuncWorker(lambda: self._report_job(wf, out))
         self.func_worker.sig_log.connect(self.log)
         self.func_worker.sig_done.connect(self._on_func_done)
@@ -696,19 +696,19 @@ class MainWindow(QMainWindow):
 
     # ================================================== 文件
     def save_workflow(self):
-        path, _ = QFileDialog.getSaveFileName(self, "保存工作流", "my_workflow.json",
-                                              "工作流 JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(self, tr("保存工作流"), "my_workflow.json",
+                                              tr("工作流 JSON (*.json)"))
         if not path:
             return
-        wf = self.workflow_panel.to_workflow()
+        wf = self.workflow_panel.to_workflow(tr("未命名"))
         with open(path, "w", encoding="utf-8") as f:
             json.dump(wf, f, ensure_ascii=False, indent=2)
         self.log(tr("工作流已保存: {0}").format(path))
         self._add_recent(path)
 
     def open_workflow(self):
-        path, _ = QFileDialog.getOpenFileName(self, "打开工作流", PRESET_DIR,
-                                              "工作流 JSON (*.json)")
+        path, _ = QFileDialog.getOpenFileName(self, tr("打开工作流"), PRESET_DIR,
+                                              tr("工作流 JSON (*.json)"))
         if not path:
             return
         self._open_workflow_path(path)

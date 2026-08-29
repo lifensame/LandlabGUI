@@ -79,10 +79,15 @@ def export_dem_netcdf(grid, path, log=print):
     try:
         write_netcdf(path, grid, names=names)
     except (FileNotFoundError, OSError):
-        # netCDF4 库不支持中文路径：先写临时文件再移动（教程实测 workaround）
-        tmp = os.path.join(tempfile.gettempdir(), "landlab_tmp.nc")
-        write_netcdf(tmp, grid, names=names)
-        shutil.move(tmp, path)
+        # netCDF4 库不支持中文路径：先写唯一临时文件再移动（教程实测 workaround）
+        fd, tmp = tempfile.mkstemp(suffix=".nc", prefix="landlab_")
+        os.close(fd)
+        try:
+            write_netcdf(tmp, grid, names=names)
+            shutil.move(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.remove(tmp)
     log(f"  DEM (NetCDF) -> {path}, {len(names)} 字段")
 
 

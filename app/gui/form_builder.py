@@ -15,7 +15,8 @@ import json
 import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout,
-                               QLineEdit, QPlainTextEdit, QSpinBox, QWidget)
+                               QGroupBox, QLineEdit, QPlainTextEdit, QScrollArea,
+                               QSpinBox, QVBoxLayout, QWidget)
 
 from ..core import i18n
 from ..core.i18n import tr
@@ -48,91 +49,137 @@ def _fmt_default(v) -> str:
 
 
 class ParamForm(QWidget):
-    """schema.params 列表 <-> 表单。comp_name 用于查找中文参数释义。"""
+    """schema.params 列表 <-> 表单。
+
+    comp_name 用于查找中文参数释义。advanced_split=True 且参数较多时自动分组：
+    有中文释义的归"核心参数"（默认展开），其余归"高级参数"（可折叠、默认收起）；
+    滚动容器由外层 StepEditDialog 提供 —— 参数再多也放得下。
+    """
 
     def __init__(self, params_def: list, field_names: list = None, parent=None,
-                 comp_name: str = None):
+                 comp_name: str = None, advanced_split: bool = False):
         super().__init__(parent)
         self.params_def = params_def or []
         self.editors = {}          # name -> (widget, getter, setter)
-        form = QFormLayout(self)
-        form.setLabelAlignment(Qt.AlignRight)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
-        for p in self.params_def:
-            name = p.get("name", "")
-            ptype = p.get("type", "str")
-            default = p.get("default")
-            doc = p.get("doc", "") or ""
-            choices = p.get("choices")
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
 
-            zh = i18n.param_zh_label(comp_name, name)
-            label_text = f"{name}｜{zh}" if zh else name
-            type_tag = _ttag(ptype)
-            tip_body = i18n.param_doc(comp_name, name, doc) if i18n.is_zh() else doc
-            tooltip = f"[{type_tag}] {tip_body}" if tip_body else f"[{type_tag}]"
+        def build_rows(form, defs):
+            """把一组参数定义渲染进 QFormLayout。"""
+            for p in defs:
+                name = p.get("name", "")
+                ptype = p.get("type", "str")
+                default = p.get("default")
+                doc = p.get("doc", "") or ""
+                choices = p.get("choices")
 
-            if ptype == "bool":
-                w = QCheckBox()
-                w.setChecked(bool(default))
-                w.setToolTip(tooltip)
-                getter = w.isChecked
-                setter = w.setChecked
-            elif ptype == "int":
-                w = QSpinBox()
-                w.setRange(-2_000_000_000, 2_000_000_000)
-                w.setValue(int(default or 0))
-                w.setToolTip(tooltip)
-                getter = w.value
-                setter = w.setValue
-            elif ptype == "float":
-                w = QLineEdit(_fmt_default(default))
-                w.setPlaceholderText(tr("如 1e-5（留空=用组件默认值）"))
-                w.setToolTip(tooltip)
-                getter = (lambda ed=w: (float(ed.text()) if ed.text().strip()
-                                        not in ("", "-") else None))
-                setter = (lambda val, ed=w: ed.setText(_fmt_default(float(val))))
-            elif ptype in ("str", "none") and choices:
-                w = QComboBox()
-                w.addItems([str(c) for c in choices])
-                if default is not None:
-                    w.setCurrentText(str(default))
-                w.setToolTip(tooltip)
-                getter = w.currentText
-                setter = w.setCurrentText
-            elif ptype == "field_ref":
-                w = QComboBox()
-                w.setEditable(True)
-                items = list(field_names or [])
-                if default and default not in items:
-                    items.insert(0, str(default))
-                w.addItems(items)
-                if default is not None:
-                    w.setCurrentText(str(default))
-                w.setToolTip(tooltip + tr("（可选当前网格已有字段，也可手输）"))
-                getter = (lambda cb=w: cb.currentText() if cb.currentText().strip() else None)
-                setter = w.setCurrentText
-            elif ptype in ("str", "none"):
-                w = QLineEdit("" if default is None else str(default))
-                w.setPlaceholderText(tr("留空") if ptype == "none" or default is None else "")
-                w.setToolTip(tooltip)
-                getter = (lambda ed=w: ed.text() if ed.text().strip() else None) \
-                    if ptype == "none" else (lambda ed=w: ed.text())
-                setter = (lambda val, ed=w: ed.setText("" if val is None else str(val)))
-            elif ptype in ("array", "dict", "json"):
-                w = QPlainTextEdit(_fmt_default(default))
-                w.setMaximumHeight(56)
-                w.setToolTip(tooltip + tr("（JSON 或逗号分隔）"))
-                getter = (lambda ed=w: _parse_loose(ed.toPlainText()))
-                setter = (lambda val, ed=w: ed.setPlainText(_fmt_default(val)))
-            else:
-                w = QLineEdit(_fmt_default(default))
-                w.setToolTip(tooltip + tr("（原样传给组件）"))
-                getter = (lambda ed=w: ed.text())
-                setter = (lambda val, ed=w: ed.setText(str(val)))
+                zh = i18n.param_zh_label(comp_name, name)
+                label_text = f"{name}｜{zh}" if zh else name
+                type_tag = _ttag(ptype)
+                tip_body = i18n.param_doc(comp_name, name, doc) if i18n.is_zh() else doc
+                tooltip = f"[{type_tag}] {tip_body}" if tip_body else f"[{type_tag}]"
 
-            form.addRow(label_text, w)
-            self.editors[name] = (w, getter, setter)
+                if ptype == "bool":
+                    w = QCheckBox()
+                    w.setChecked(bool(default))
+                    w.setToolTip(tooltip)
+                    getter = w.isChecked
+                    setter = w.setChecked
+                elif ptype == "int":
+                    w = QSpinBox()
+                    w.setRange(-2_000_000_000, 2_000_000_000)
+                    w.setValue(int(default or 0))
+                    w.setToolTip(tooltip)
+                    getter = w.value
+                    setter = w.setValue
+                elif ptype == "float":
+                    w = QLineEdit(_fmt_default(default))
+                    w.setPlaceholderText(tr("如 1e-5（留空=用组件默认值）"))
+                    w.setToolTip(tooltip)
+                    getter = (lambda ed=w: (float(ed.text()) if ed.text().strip()
+                                            not in ("", "-") else None))
+                    setter = (lambda val, ed=w: ed.setText(_fmt_default(float(val))))
+                elif ptype in ("str", "none") and choices:
+                    w = QComboBox()
+                    w.addItems([str(c) for c in choices])
+                    if default is not None:
+                        w.setCurrentText(str(default))
+                    w.setToolTip(tooltip)
+                    getter = w.currentText
+                    setter = w.setCurrentText
+                elif ptype == "field_ref":
+                    w = QComboBox()
+                    w.setEditable(True)
+                    items = list(field_names or [])
+                    if default and default not in items:
+                        items.insert(0, str(default))
+                    w.addItems(items)
+                    if default is not None:
+                        w.setCurrentText(str(default))
+                    w.setToolTip(tooltip + tr("（可选当前网格已有字段，也可手输）"))
+                    getter = (lambda cb=w: cb.currentText() if cb.currentText().strip() else None)
+                    setter = w.setCurrentText
+                elif ptype in ("str", "none"):
+                    w = QLineEdit("" if default is None else str(default))
+                    w.setPlaceholderText(tr("留空") if ptype == "none" or default is None else "")
+                    w.setToolTip(tooltip)
+                    getter = (lambda ed=w: ed.text() if ed.text().strip() else None) \
+                        if ptype == "none" else (lambda ed=w: ed.text())
+                    setter = (lambda val, ed=w: ed.setText("" if val is None else str(val)))
+                elif ptype in ("array", "dict", "json"):
+                    w = QPlainTextEdit(_fmt_default(default))
+                    w.setMaximumHeight(56)
+                    w.setToolTip(tooltip + tr("（JSON 或逗号分隔）"))
+                    getter = (lambda ed=w: _parse_loose(ed.toPlainText()))
+                    setter = (lambda val, ed=w: ed.setPlainText(_fmt_default(val)))
+                else:
+                    w = QLineEdit(_fmt_default(default))
+                    w.setToolTip(tooltip + tr("（原样传给组件）"))
+                    getter = (lambda ed=w: ed.text())
+                    setter = (lambda val, ed=w: ed.setText(str(val)))
+
+                form.addRow(label_text, w)
+                self.editors[name] = (w, getter, setter)
+
+        def new_form(vbox):
+            """创建表单布局并挂到指定垂直布局（Qt 不允许一控件双布局）。"""
+            form = QFormLayout()
+            form.setLabelAlignment(Qt.AlignRight)
+            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+            vbox.addLayout(form)
+            return form
+
+        # ---- 布局策略：参数少→单表单；多且已汉化→核心/高级 分组折叠 ----
+        do_split = bool(advanced_split) and len(self.params_def) > 8
+        core_defs = adv_defs = []
+        if do_split:
+            core_defs = [p for p in self.params_def
+                         if i18n.param_zh_label(comp_name, p.get("name", ""))]
+            adv_defs = [p for p in self.params_def if p not in core_defs]
+            if not core_defs:            # 一个释义都没有就别分组了
+                core_defs, adv_defs = list(self.params_def), []
+
+        if adv_defs:
+            gb_core = QGroupBox(tr("核心参数"))
+            cv = QVBoxLayout(gb_core)
+            cv.setContentsMargins(8, 4, 8, 4)
+            build_rows(new_form(cv), core_defs)
+            gb_adv = QGroupBox(tr("高级参数（{0} 项）").format(len(adv_defs)))
+            gb_adv.setCheckable(True)
+            gb_adv.setChecked(False)      # 默认收起
+            av = QVBoxLayout(gb_adv)
+            av.setContentsMargins(8, 4, 8, 4)
+            build_rows(new_form(av), adv_defs)
+            root.addWidget(gb_core)
+            root.addWidget(gb_adv)
+            root.addStretch(1)
+        else:
+            form = QFormLayout()
+            form.setLabelAlignment(Qt.AlignRight)
+            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+            root.addLayout(form)
+            build_rows(form, self.params_def)
 
     # ---------- 读写 ----------
     def values(self) -> dict:

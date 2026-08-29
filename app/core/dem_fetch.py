@@ -44,12 +44,15 @@ def geocode(query: str, proxies=None, limit: int = 8) -> list[dict]:
                     "accept-language": "zh"},
             headers=_UA, proxies=make_proxies(proxies), timeout=20)
         r.raise_for_status()
+        items = r.json()
     except requests.exceptions.Timeout as e:
         raise ConnectionError("地名搜索超时（可能需要配置代理，如 http://127.0.0.1:7890）") from e
     except requests.exceptions.RequestException as e:
         raise ConnectionError(f"地名搜索失败: {e}（检查网络/代理设置）") from e
+    except ValueError as e:
+        raise ConnectionError("地名搜索返回了非 JSON 响应（代理/网关异常？）") from e
     out = []
-    for it in r.json():
+    for it in items:
         bb = it.get("boundingbox")            # [南, 北, 西, 东] 字符串
         if not bb or len(bb) != 4:
             continue

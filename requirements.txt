@@ -1,5 +1,13 @@
+# 运行时依赖
 PySide6>=6.6
 numpy
 matplotlib
 landlab>=2.5
 numpydoc
+requests          # 在线DEM下载
+netCDF4           # NetCDF 导出（landlab.io.netcdf 依赖）
+Pillow            # GIF 动画导出 / DEM 瓦片解码（matplotlib 会连带安装，显式声明更稳）
+
+# 可选增强（缺失时对应功能自动跳过）
+# rasterio         # GeoTIFF 导出
+# pyshp            # 河网 Shapefile 导出

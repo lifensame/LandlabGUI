@@ -332,7 +332,6 @@ _STR_EN = {
     "无有效数据": "No valid data",
     "该网格类型暂不支持二维显示": "2D view unsupported for this grid type",
     "该网格类型暂不支持3D显示": "3D view unsupported for this grid type",
-    "平均高程平均": "mean elevation",
     "节点 {0}  ({1}, {2})": "Node {0}  ({1}, {2})",
     "📍 ": "📍 ",
     # ---- 向导 ----

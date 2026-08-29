@@ -19,7 +19,7 @@
 - workspace: app.core.workspace.Workspace，可访问 .grid / .at_node / .log()
 - params:    GUI 表单收集的参数 dict
 
-params 中每个参数支持: type(float/int/str/bool/field_ref/choice)、default、doc、choices
+params 中每个参数支持: type(float/int/str/bool/field_ref/array)、default、doc、choices
 """
 
 from __future__ import annotations

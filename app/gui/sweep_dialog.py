@@ -90,7 +90,7 @@ class SweepDialog(QDialog):
         self.step_combo.clear()
         for i, s in enumerate(self.wfp.steps):
             name = s.get("component") or s.get("plugin")
-            tag = "组件" if s["kind"] == "component" else "插件"
+            tag = tr("组件") if s["kind"] == "component" else tr("插件")
             display = i18n.display_name(name) if s["kind"] == "component" else name
             self.step_combo.addItem(f"{i + 1}. [{tag}] {display}", s.get("id"))
         self._refresh_params()
@@ -117,7 +117,7 @@ class SweepDialog(QDialog):
             QMessageBox.warning(self, tr("范围无效"), tr("起始值与终止值不能相同"))
             return
         if self.log_scale.isChecked() and (lo <= 0 or hi <= 0):
-            QMessageBox.warning(self, "范围无效", "对数扫描要求两端 > 0（或改用线性）")
+            QMessageBox.warning(self, tr("范围无效"), tr("对数扫描要求两端 > 0（或改用线性）"))
             return
         try:
             values = sweep.make_values(lo, hi, self.n.value(), self.log_scale.isChecked())
@@ -125,7 +125,7 @@ class SweepDialog(QDialog):
             QMessageBox.warning(self, tr("范围无效"), str(e))
             return
         sid = self.step_combo.currentData()
-        wf = self.wfp.to_workflow("参数扫描")
+        wf = self.wfp.to_workflow(tr("参数扫描"))
         if not wf.get("grid"):
             QMessageBox.warning(self, tr("无法扫描"),
                                 tr("当前工作流没有网格配置（沿用交互网格）。\n"
@@ -174,8 +174,8 @@ class SweepResultWindow(QWidget):
                           label=f"{param_name}={res['value']:.3g}")
                 plotted += 1
         if plotted:
-            ax.set_xlabel("汇水面积 A (m²)")
-            ax.set_ylabel("坡度 S")
+            ax.set_xlabel(tr("汇水面积 A (m²)"))
+            ax.set_ylabel(tr("坡度 S"))
             ax.legend(fontsize=8)
             ax.set_title(tr("坡度-面积曲线对比（凹度差异一眼可见）"))
         else:

@@ -156,7 +156,7 @@ class CompareDialog(QDialog):
             f"{np.nanmean(diff):+.2f}", f"{np.nanmax(diff):.2f}",
             f"{np.nanmax(za)-np.nanmin(za):.1f}", f"{np.nanmax(zb)-np.nanmin(zb):.1f}"))
         else:
-            txt = "两次运行网格不同，无法逐点求差"
+            txt = tr("两次运行网格不同，无法逐点求差")
         lbl = QLabel(txt)
         lbl.setWordWrap(True)
         lay.addWidget(lbl)

@@ -36,8 +36,8 @@ class DemDownloadDialog(QDialog):
         v1 = QVBoxLayout(gb1)
         h = QHBoxLayout()
         self.query_edit = QLineEdit()
-        self.query_edit.setPlaceholderText(
-            "例: 华山 / Mount Hua / 富士山 / Grand Canyon（歧义名建议用英文）")
+        self.query_edit.setPlaceholderText(tr(
+            "例: 华山 / Mount Hua / 富士山 / Grand Canyon（歧义名建议用英文）"))
         self.btn_search = QPushButton("搜索")
         self.btn_search.clicked.connect(self.search)
         h.addWidget(self.query_edit)
@@ -87,13 +87,13 @@ class DemDownloadDialog(QDialog):
         self.info_label.setStyleSheet("color:#9aa0a6;")
         f3.addRow(self.info_label)
         self.boundary = QComboBox()
-        self.boundary.addItems(["south_open (四周封闭+南缘出水口，教程同款)",
-                                "all_closed (四周封闭)"])
+        self.boundary.addItems([tr("south_open (四周封闭+南缘出水口，教程同款)"),
+                                tr("all_closed (四周封闭)")])
         f3.addRow(tr("边界条件"), self.boundary)
         self.proxy_edit = QLineEdit()
         last = str(self.settings.value("dem_proxy", "") or "")
         self.proxy_edit.setText(last)
-        self.proxy_edit.setPlaceholderText("留空=系统代理；直连失败可填 http://127.0.0.1:7890")
+        self.proxy_edit.setPlaceholderText(tr("留空=系统代理；直连失败可填 http://127.0.0.1:7890"))
         f3.addRow(tr("网络代理"), self.proxy_edit)
         root.addWidget(gb3)
 
@@ -158,6 +158,13 @@ class DemDownloadDialog(QDialog):
                 + (tr("  ⚠ 过大，建议降低缩放") if w * h > 1_200_000 else ""))
         except Exception:
             self.info_label.setText("")
+
+    def closeEvent(self, ev):
+        if self._worker is not None and self._worker.isRunning():
+            QMessageBox.warning(self, tr("搜索进行中"), tr("地名搜索还在后台进行，请稍候再操作"))
+            ev.ignore()
+            return
+        super().closeEvent(ev)
 
     def _accept(self):
         if self._worker is not None and self._worker.isRunning():

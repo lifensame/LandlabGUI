@@ -61,39 +61,47 @@ def run_sweep(base_wf: dict, step_id: str, param_name: str, values: list,
                 log(tr("扫描在第 {0}/{1} 组前被取消").format(i + 1, total))
                 break
             log(tr("--- 扫描 {0}/{1}: {2} = {3} ---").format(i + 1, total, param_name, f"{val:.4g}"))
-            wf = copy.deepcopy(base_wf)
-            wf.pop("outputs", None)            # 扫描过程不落盘导出
-            wf["name"] = f"扫描[{param_name}={val:.4g}]"
-            for s in wf.get("steps", []):
-                if s.get("id") == step_id:
-                    s.setdefault("params", {})[param_name] = float(val) \
-                        if isinstance(find_numeric_param(base_wf, step_id, param_name), float) \
-                        else val
+            try:
+                wf = copy.deepcopy(base_wf)
+                wf.pop("outputs", None)            # 扫描过程不落盘导出
+                wf["name"] = f"扫描[{param_name}={val:.4g}]"
+                base_val = find_numeric_param(base_wf, step_id, param_name)
+                typed_val = float(val) if isinstance(base_val, float) else \
+                    (int(round(val)) if isinstance(base_val, int) else val)
+                for s in wf.get("steps", []):
+                    if s.get("id") == step_id:
+                        s.setdefault("params", {})[param_name] = typed_val
 
-            ws = Workspace()
-            ws.log_fn = lambda *_: None        # 静默
-            quiet_log = lambda *_: None
-            eng = Engine(ws, plugins, log=quiet_log)
-            eng.run(wf)
+                ws = Workspace()
+                ws.log_fn = lambda *_: None        # 静默
+                quiet_log = lambda *_: None
+                eng = Engine(ws, plugins, log=quiet_log)
+                eng.run(wf)
 
-            z = np.asarray(ws.at_node["topographic__elevation"], dtype=float)
-            from .plots import slope_area_binned
-            shape = getattr(ws.grid, "shape", None)
-            if shape and len(shape) == 2:
-                step = max(1, int(np.ceil(max(shape) / 120)))
-                z2d = z.reshape(shape)[::step, ::step]
-            else:
-                z2d = z[: 120 * 120].reshape(120, -1) if z.size >= 14400 else \
-                    z.reshape(1, -1)
-            results.append({
-                "value": float(val),
-                "mean": float(np.nanmean(z)),
-                "max": float(np.nanmax(z)),
-                "min": float(np.nanmin(z)),
-                "relief": float(np.nanmax(z) - np.nanmin(z)),
-                "z2d": z2d.astype(np.float32),
-                "sa": slope_area_binned(ws),
-            })
+                z = np.asarray(ws.at_node["topographic__elevation"], dtype=float)
+                if not np.isfinite(z).all():
+                    raise ValueError("高程场出现 NaN/Inf（参数组合不稳定）")
+                from .plots import slope_area_binned
+                shape = getattr(ws.grid, "shape", None)
+                if shape and len(shape) == 2:
+                    step = max(1, int(np.ceil(max(shape) / 120)))
+                    z2d = z.reshape(shape)[::step, ::step]
+                else:
+                    z2d = z[: 120 * 120].reshape(120, -1) if z.size >= 14400 else \
+                        z.reshape(1, -1)
+                results.append({
+                    "value": float(val),
+                    "mean": float(np.nanmean(z)),
+                    "max": float(np.nanmax(z)),
+                    "min": float(np.nanmin(z)),
+                    "relief": float(np.nanmax(z) - np.nanmin(z)),
+                    "z2d": z2d.astype(np.float32),
+                    "sa": slope_area_binned(ws),
+                })
+            except Exception as e:
+                # 单组失败不中止扫描：记录并继续（结果列表里少一组）
+                log(tr("扫描 {0} = {1} 失败，已跳过: {2}").format(
+                    param_name, f"{val:.4g}", f"{type(e).__name__}: {e}"))
         if progress:
             progress(total, total)
         log(tr("扫描完成: {0} 共 {1} 组").format(param_name, total))

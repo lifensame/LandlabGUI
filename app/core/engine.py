@@ -112,13 +112,13 @@ class Engine:
 
         comps = {}
         try:
-            # 3) 启动前一次性步骤
+            # 3) 注入时间步长（once_at_start 插件也要按 dt 施加通量）
+            ws.dt = dt
+            # 4) 启动前一次性步骤
             for s in start_steps:
-                self._exec_step(s, comps)
+                self._exec_step(s, comps, dt=dt)
 
-            # 4) 时间循环
-            z0 = ws.at_node["topographic__elevation"]
-            ws.dt = dt          # 注入时间步长：插件按 物理量×dt 施加（如抬升 m/yr × dt）
+            # 5) 时间循环
             for i in range(n_steps):
                 if self._stopped():
                     log(tr("用户中断于第 {0}/{1} 步").format(i + 1, n_steps))
@@ -233,7 +233,8 @@ class Engine:
         method = getattr(comp, style, None)
         if method is None:
             raise RuntimeError(f"组件 {name} 缺少步进方法 {style}")
-        # 有的组件 run_one_step() 不接收 dt（如 PriorityFloodFlowRouter），按签名分派
+        # 有的组件 run_one_step() 不接收 dt（如 PriorityFloodFlowRouter），按签名分派；
+        # dt=None（once_at_start/end 的求解类组件）时不强传，避免 None 进入数值计算
         import inspect as _inspect
         try:
             sig = _inspect.signature(method)
@@ -241,10 +242,10 @@ class Engine:
                           any(p.kind == p.VAR_POSITIONAL for p in sig.parameters.values()))
         except (TypeError, ValueError):
             accepts_dt = True
-        if style == "run_one_step_basic" or accepts_dt:
-            method(dt)
-        else:
+        if not accepts_dt or dt is None:
             method()
+        else:
+            method(dt)
 
     @staticmethod
     def _detect_style(cls) -> str:
