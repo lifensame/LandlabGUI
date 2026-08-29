@@ -8,3 +8,5 @@ sweep_results*/
 export/
 *.pyc
 *.zip
+tests/soak_log.txt
+tests/soak_report.md

@@ -73,23 +73,28 @@ class Workspace:
     # ---------- 初始地形 ----------
     def init_terrain(self, mode: str = "noise", amplitude: float = 10.0,
                      slope: float = 0.01, slope_dir: str = "S", seed: int = 42):
-        """生成初始地形。mode: noise(噪声+坡度) / gaussian(高斯山) / flat(平地)"""
+        """生成初始地形。mode: noise(噪声+坡度) / gaussian(高斯山) / flat(平地)。
+
+        坡度用节点坐标施加（对栅格/六边形/Voronoi 等所有网格类型通用）；
+        高斯山仅对规则网格（有 shape）可用，否则回退为噪声。
+        """
         g = self.grid
         rng = np.random.default_rng(seed)
-        ny, nx = (g.shape if hasattr(g, "shape") else (0, 0))
-        z = np.zeros(g.number_of_nodes)
-        if mode == "noise":
-            z = rng.uniform(0, amplitude, g.number_of_nodes)
-        elif mode == "gaussian":
-            y, x = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
-            z = amplitude * np.exp(-(((x - nx * 0.5) / (nx * 0.15)) ** 2 +
-                                     ((y - ny * 0.5) / (ny * 0.15)) ** 2))
-            z = z.reshape(-1)
-        if slope > 0 and ny > 0 and nx > 0:
-            # 行/列索引：row 0 在南侧(y小)，col 0 在西侧；出水口方向一侧地势最低
-            y = np.repeat(np.arange(ny), nx)
-            x = np.tile(np.arange(nx), ny)
-            tilt = {"S": y, "N": ny - 1 - y, "E": x, "W": nx - 1 - x}.get(slope_dir, y)
+        n = g.number_of_nodes
+        z = rng.uniform(0, amplitude, n) if mode in ("noise", "gaussian") \
+            else np.zeros(n)
+        if mode == "gaussian":
+            shape = getattr(g, "shape", None)
+            if shape and len(shape) == 2 and shape[0] * shape[1] == n:
+                ny, nx = shape
+                yy, xx = np.meshgrid(np.arange(ny), np.arange(nx), indexing="ij")
+                z = amplitude * np.exp(-(((xx - nx * 0.5) / (nx * 0.15)) ** 2 +
+                                         ((yy - ny * 0.5) / (ny * 0.15)) ** 2)).reshape(-1)
+        if slope > 0:
+            # 坐标倾斜：出水口一侧地势最低（对任意网格类型通用）
+            y, x = g.y_of_node, g.x_of_node
+            tilt = {"S": y - y.min(), "N": y.max() - y,
+                    "E": x - x.min(), "W": x.max() - x}.get(slope_dir, y - y.min())
             z = z + slope * tilt
         self.at_node["topographic__elevation"] = z
         self.log(tr("初始地形: {0}, 幅度={1}, 坡度={2} 方向={3}").format(mode, amplitude, slope, slope_dir))
