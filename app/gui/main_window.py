@@ -495,6 +495,8 @@ class MainWindow(QMainWindow):
                         stop_flag=flag)
         self.worker = SimWorker(engine, wf)
         self.worker.flag = flag
+        self._last_progress_pct = -1
+        self.worker.setPriority(QThread.Priority.LowPriority)  # 让位给界面线程
         self.worker.sig_log.connect(self.log)
         self.worker.sig_progress.connect(self._on_progress)
         self.worker.sig_snapshot.connect(self._on_snapshot)
@@ -503,7 +505,13 @@ class MainWindow(QMainWindow):
         self.worker.start()
 
     def _engine_progress(self, i, n):
-        if self.worker:
+        """进度节流：只在百分比变化时发信号（2000 步从 2000 次跨线程事件
+        降到 ≤100 次），否则高频 emit 会淹没主线程造成界面卡顿。"""
+        if not self.worker:
+            return
+        pct = (i * 100) // max(1, n)
+        if pct != self._last_progress_pct:
+            self._last_progress_pct = pct
             self.worker.sig_progress.emit(i, n)
 
     def _engine_snapshot(self):
@@ -528,6 +536,8 @@ class MainWindow(QMainWindow):
     def _on_progress(self, i, n):
         self.progress.setMaximum(n)
         self.progress.setValue(i)
+        if i >= n:
+            self._last_progress_pct = -1
 
     def _on_snapshot(self, z):
         """主线程入口（worker 信号）：只存最新帧并启动节流定时器，
