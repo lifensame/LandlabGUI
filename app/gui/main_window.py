@@ -10,7 +10,7 @@ import os
 import traceback
 
 import numpy as np
-from PySide6.QtCore import QProcess, QSettings, Qt, QTimer
+from PySide6.QtCore import QProcess, QSettings, Qt, QThread, QTimer
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (QDockWidget, QFileDialog, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMainWindow, QMenu,
@@ -496,7 +496,10 @@ class MainWindow(QMainWindow):
         self.worker = SimWorker(engine, wf)
         self.worker.flag = flag
         self._last_progress_pct = -1
-        self.worker.setPriority(QThread.Priority.LowPriority)  # 让位给界面线程
+        try:      # 优先级只是优化项：任何环境下都不允许它弄挂运行流程
+            self.worker.setPriority(QThread.Priority.LowPriority)
+        except Exception:
+            pass
         self.worker.sig_log.connect(self.log)
         self.worker.sig_progress.connect(self._on_progress)
         self.worker.sig_snapshot.connect(self._on_snapshot)
