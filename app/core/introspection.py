@@ -15,6 +15,7 @@ GUI 启动时直接读缓存，秒开；landlab 升级或缓存缺失时自动�
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import json
 import os
@@ -264,8 +265,11 @@ def build_schema(cls, name: str) -> dict:
             continue
         if p.kind == p.VAR_KEYWORD:
             # **kwargs 组件：如有硬编码二级选项则展开，否则留"额外JSON"入口
+            # （先跳过签名里已具名出现的参数，避免重复注入 FlowAccumulator 等）
+            seen = {q["name"] for q in params}
             for extra in _VAR_KW_EXTRA.get(name, []):
-                params.append(extra)
+                if extra["name"] not in seen:
+                    params.append(extra)
             if name not in _VAR_KW_EXTRA:
                 params.append({"name": "__extra_kwargs__", "type": "dict",
                                "default": {}, "doc": "额外关键字参数(JSON)"})
@@ -318,14 +322,21 @@ def build_schema(cls, name: str) -> dict:
 
 
 def scan_all_components(force: bool = False) -> dict:
-    """扫描全部组件，返回 {组件名: schema}；带磁盘缓存。"""
+    """扫描全部组件，返回 {组件名: schema}；带磁盘缓存。
+
+    缓存文件结构: {"_meta": {"landlab_version": ...}, "components": {...}}；
+    landlab 版本不一致时视为过期自动重建（否则升级后表单与真实签名不符）。
+    """
     cache_path = os.path.join(os.path.dirname(__file__), "components_cache.json")
+    this_version = getattr(_ll_components, "__landlab_version__", None) or         getattr(importlib.import_module("landlab"), "__version__", "unknown")
     if not force and os.path.exists(cache_path):
         try:
             with open(cache_path, "r", encoding="utf-8") as f:
                 cache = json.load(f)
-            if len(cache) >= 80:      # 缓存完整性粗检
-                return cache
+            comps = cache.get("components", {})
+            meta_ok = cache.get("_meta", {}).get("landlab_version") == this_version
+            if meta_ok and len(comps) >= 80:
+                return comps
         except Exception:
             pass
     schemas = {}
@@ -340,7 +351,10 @@ def scan_all_components(force: bool = False) -> dict:
                              "unit_agnostic": True, "broken": True}
     try:
         with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(schemas, f, ensure_ascii=False, indent=1)
+            json.dump({"_meta": {"landlab_version": this_version,
+                                  "generated": __import__("time").strftime("%Y-%m-%d")},
+                       "components": schemas},
+                      f, ensure_ascii=False, indent=1)
     except OSError:
         pass
     return schemas

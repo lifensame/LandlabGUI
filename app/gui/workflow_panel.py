@@ -266,12 +266,15 @@ class WorkflowPanel(QWidget):
                        "refresh_every": int(self.refresh_every.value()),
                        "history_every": max(1, int(self.refresh_every.value()) // 2)},
               "steps": [dict(s) for s in self.steps]}
-        if self.rebuild_check.isChecked() and self.grid_cfg:
+        if self.grid_cfg:
+            # 网格配置始终保存；是否"运行时重建"由 rebuild 标志决定
             wf["grid"] = self.grid_cfg
-            if self.terrain_cfg:
-                wf["terrain"] = self.terrain_cfg
-            if self.boundary_cfg:
-                wf["boundary"] = self.boundary_cfg
+            wf["grid_rebuild"] = self.rebuild_check.isChecked()
+            if self.rebuild_check.isChecked():
+                if self.terrain_cfg:
+                    wf["terrain"] = self.terrain_cfg
+                if self.boundary_cfg:
+                    wf["boundary"] = self.boundary_cfg
         if self.do_export.isChecked():
             wf["outputs"] = {"dir": self.out_dir.text().strip() or "gui_results",
                              "formats": [f for f, cb in
@@ -294,7 +297,7 @@ class WorkflowPanel(QWidget):
         self._refresh_list()
         if wf.get("grid"):
             self.set_grid_config(wf["grid"], wf.get("terrain"), wf.get("boundary"),
-                                 from_dialog=False)
+                                 from_dialog=not wf.get("grid_rebuild", True))
         else:
             self.grid_cfg, self.terrain_cfg, self.boundary_cfg = None, None, None
             self.grid_desc.setText(tr("（沿用当前网格）"))

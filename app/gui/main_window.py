@@ -485,6 +485,16 @@ class MainWindow(QMainWindow):
                                 tr("请在左侧组件库双击组件/插件添加步骤，或载入场景预设"))
             return
         wf = self.workflow_panel.to_workflow(tr("未命名"))
+        # 预校验：所有步骤引用的组件/插件必须存在（避免建完网格才在中途失败）
+        missing = sorted({(st.get("component") or st.get("plugin"))
+                          for st in wf["steps"]
+                          if self.registry.get(st.get("component") or st.get("plugin")) is None})
+        if missing:
+            QMessageBox.critical(
+                self, tr("运行失败"),
+                tr("以下功能不存在（插件被删除/改名？）：\n{0}\n\n请删除或修正这些步骤后重试").format(
+                    "\n".join(missing)))
+            return
         self.log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
         self._frames_clear()
         self._current_wf = wf

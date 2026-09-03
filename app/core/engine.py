@@ -86,9 +86,11 @@ class Engine:
         ws = self.ws
         log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
 
-        # 1) 网格
-        if wf.get("grid"):
+        # 1) 网格（grid_rebuild=False 表示沿用当前网格，仅在无网格时报错）
+        if wf.get("grid") and wf.get("grid_rebuild", True):
             self._build_grid(wf["grid"])
+        elif wf.get("grid") and not ws.has_grid:
+            raise RuntimeError("工作流要求沿用当前网格，但当前没有任何网格")
         if not ws.has_grid:
             raise RuntimeError("尚无网格：请先新建网格或在工作流中包含 grid 配置")
         if wf.get("boundary"):

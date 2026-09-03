@@ -87,12 +87,13 @@ class ParamForm(QWidget):
                     getter = w.isChecked
                     setter = w.setChecked
                 elif ptype == "int":
-                    w = QSpinBox()
-                    w.setRange(-2_000_000_000, 2_000_000_000)
-                    w.setValue(int(default or 0))
+                    # 与 float 一致：可留空 = 不提交，让组件用自己的默认值
+                    w = QLineEdit("" if default is None else str(int(default)))
+                    w.setPlaceholderText(tr("整数（留空=用组件默认值）"))
                     w.setToolTip(tooltip)
-                    getter = w.value
-                    setter = w.setValue
+                    getter = (lambda ed=w: (int(float(ed.text())) if ed.text().strip()
+                                            not in ("", "-") else None))
+                    setter = (lambda val, ed=w: ed.setText("" if val is None else str(int(val))))
                 elif ptype == "float":
                     w = QLineEdit(_fmt_default(default))
                     w.setPlaceholderText(tr("如 1e-5（留空=用组件默认值）"))

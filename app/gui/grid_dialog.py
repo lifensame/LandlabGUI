@@ -162,7 +162,10 @@ class GridDialog(QDialog):
         if gtype == "VoronoiDelaunayGrid":
             npts = width = height = None
             for p, w in self._form_widgets:
-                v = w.value() if hasattr(w, "value") else float(w.text() or 0)
+                try:
+                    v = w.value() if hasattr(w, "value") else float(w.text() or 0)
+                except ValueError:
+                    raise ValueError(f"参数 {p['name']} 不是有效数字")
                 if p["name"] == "__npts__":
                     npts = int(v)
                 elif p["name"] == "__width__":
