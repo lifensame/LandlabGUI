@@ -35,8 +35,8 @@ class _PlotTab(QWidget):
         lay.setSpacing(2)
         self.fig = Figure(figsize=(5, 4))
         self.canvas = FigureCanvasQTAgg(self.fig)
+        self.title, self.xlabel, self.ylabel = title, xlabel, ylabel
         self.ax = self.fig.add_subplot(111)
-        self.title = title
         self.ax.set_title(title)
         self.ax.set_xlabel(xlabel)
         self.ax.set_ylabel(ylabel)
@@ -47,13 +47,28 @@ class _PlotTab(QWidget):
             tb.addWidget(self.toolbar)
             lay.addLayout(tb)
 
+    def reset_ax(self, projection: str = "2d"):
+        """彻底重建坐标轴。
+
+        ax.clear() 不会移除 colorbar 创建的独立坐标轴，反复刷新会堆积色标、
+        挤压主图 —— 这里用 fig.clf() 一次性解决（工具栏绑定的是 canvas，
+        不受重建影响）。
+        """
+        self.fig.clf()
+        if projection == "3d":
+            self.ax = self.fig.add_subplot(111, projection="3d")
+        else:
+            self.ax = self.fig.add_subplot(111)
+            self.ax.set_xlabel(self.xlabel)
+            self.ax.set_ylabel(self.ylabel)
+        try:
+            self.fig.tight_layout()      # 每次渲染排一次（渲染已节流，开销可忽略）
+        except Exception:
+            pass
+
     def draw(self):
         from ..core.i18n import tr as _tr
         self.ax.set_title(_tr(self.title))
-        try:
-            self.fig.tight_layout()
-        except Exception:
-            pass
         self.canvas.draw_idle()
 
 
@@ -141,14 +156,14 @@ class CanvasPanel(QTabWidget):
         grid = ws.grid
         z = ws.at_node["topographic__elevation"]
         if idx == 0:
+            self.tab_terrain.reset_ax()
             ax = self.tab_terrain.ax
-            ax.clear()
             plots.draw_field(ax, grid, z, colorbar_fig=self.tab_terrain.fig)
             self._draw_custom_profile_lines(ax, grid)
             self.tab_terrain.draw()
         elif idx == 1:
+            self.tab_area.reset_ax()
             ax = self.tab_area.ax
-            ax.clear()
             if "drainage_area" in ws.at_node:
                 plots.draw_field(ax, grid, np.log10(np.maximum(ws.at_node["drainage_area"], 1.0)),
                                  cmap="viridis", colorbar_fig=self.tab_area.fig)
@@ -167,7 +182,6 @@ class CanvasPanel(QTabWidget):
             plots.draw_history(self.tab_history.ax, ws)
             self.tab_history.draw()
         elif idx == 5:
-            self._3d_dirty = False
             self._render_3d()
 
     def _on_tab_changed(self, idx):
@@ -189,7 +203,7 @@ class CanvasPanel(QTabWidget):
         if not ws or not ws.has_grid:
             return
         tab = self.tab_3d
-        tab.ax.clear()
+        tab.reset_ax(projection="3d")
         z = z if z is not None else (
                 ws.at_node["topographic__elevation"]
                 if "topographic__elevation" in ws.at_node else None)
