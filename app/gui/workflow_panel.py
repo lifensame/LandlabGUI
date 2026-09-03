@@ -79,6 +79,18 @@ class WorkflowPanel(QWidget):
 
         root = QVBoxLayout(self)
 
+        # ---- 运行控制（大按钮常驻顶部，不用去工具栏找） ----
+        run_row = QHBoxLayout()
+        self.btn_run_big = QPushButton(tr("▶ 运行工作流 (F5)"))
+        self.btn_run_big.setMinimumHeight(42)
+        self.btn_run_big.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.btn_stop_big = QPushButton(tr("■ 停止"))
+        self.btn_stop_big.setMinimumHeight(42)
+        self.btn_stop_big.setEnabled(False)
+        run_row.addWidget(self.btn_run_big, stretch=3)
+        run_row.addWidget(self.btn_stop_big, stretch=1)
+        root.addLayout(run_row)
+
         # ---- 网格与时间 ----
         h_top = QHBoxLayout()
         gb_g = QGroupBox(tr("网格来源"))
@@ -154,6 +166,11 @@ class WorkflowPanel(QWidget):
         hint.setWordWrap(True)
         vs.addWidget(hint)
         root.addWidget(gb_s, stretch=1)
+
+    def set_running(self, running: bool):
+        """同步顶部大按钮的可用态（主窗口 _set_running 调用）。"""
+        self.btn_run_big.setEnabled(not running)
+        self.btn_stop_big.setEnabled(running)
 
     # ------------------------------------------------ 网格配置
     def set_grid_config(self, grid_cfg: dict, terrain_cfg: dict | None, boundary: str | None,

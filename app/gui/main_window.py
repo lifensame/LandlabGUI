@@ -66,6 +66,9 @@ class MainWindow(QMainWindow):
                                       on_snapshot=self._on_snapshot, log=self.log)
         self.editor.busy_check = self._busy
         self.history_panel = HistoryPanel(self)
+        # 工作流面板顶部的大运行/停止按钮
+        self.workflow_panel.btn_run_big.clicked.connect(self.run_workflow)
+        self.workflow_panel.btn_stop_big.clicked.connect(self.stop_workflow)
 
         self._build_left_panel()
         self._build_layout()
@@ -297,7 +300,7 @@ class MainWindow(QMainWindow):
                     act_report, act_reload):
             tb.addAction(act)
 
-        self.status_label = QLabel(" " + tr("就绪 ").strip() + " ")
+        self.status_label = QLabel(" " + tr("就绪 ").strip() + " " + tr("｜ F5=运行  ■=停止  "))
         self.statusBar().addWidget(self.status_label)
         self.progress = QProgressBar()
         self.progress.setMaximumWidth(280)
@@ -318,7 +321,7 @@ class MainWindow(QMainWindow):
         if geo is not None:
             self.restoreGeometry(geo)
         state = self.settings.value("windowState")
-        if state is not None:
+        if state is not None and self.settings.value("winstate_ver", 0, int) == 2:
             self.restoreState(state)
         rf = self.settings.value("recent_files", []) or []
         if isinstance(rf, str):          # QSettings 单条目时可能返回纯字符串
@@ -343,6 +346,7 @@ class MainWindow(QMainWindow):
                     w.wait(5000)
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
+        self.settings.setValue("winstate_ver", 2)
         self.settings.setValue("recent_files", self.recent_files)
         super().closeEvent(ev)
 
@@ -515,6 +519,7 @@ class MainWindow(QMainWindow):
     def _set_running(self, running: bool):
         self.act_start.setEnabled(not running)
         self.act_stop.setEnabled(running)
+        self.workflow_panel.set_running(running)
         self.progress.setVisible(running)
         if running:
             self.progress.setValue(0)

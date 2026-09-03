@@ -324,6 +324,8 @@ _STR_EN = {
     "剖面{n}: A-B": "Profile {n}: A-B",
     "💡 点击地形/面积图可查看该点数值；工具栏可缩放平移":
         "💡 Click the terrain/area map to inspect values; toolbar zooms/pans",
+    "💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移（⌂◀▶ 在用过缩放后才亮起）":
+        "💡 Charts have data after a run; click to inspect; toolbar: 🔍zoom ✥pan (⌂◀▶ enable after zooming)",
     "运行含汇流组件后显示\n(阈值 A>1e3 m²)":
         "Shown after a flow-routing step\n(threshold A>1e3 m²)",
     "运行含汇流的组件后显示\n(最长河道纵剖面)":

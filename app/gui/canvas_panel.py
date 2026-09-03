@@ -97,7 +97,7 @@ class CanvasPanel(QTabWidget):
         wrap.setLayout(bar)
         self.tab_terrain.layout().insertWidget(1, wrap)
 
-        self.info_label = QLabel(tr("💡 点击地形/面积图可查看该点数值；工具栏可缩放平移"))
+        self.info_label = QLabel(tr("💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移（⌂◀▶ 在用过缩放后才亮起）"))
         self.info_label.setStyleSheet("color:#9aa0a6;")
         self.info_label.setWordWrap(True)
         wrap2 = QWidget()
