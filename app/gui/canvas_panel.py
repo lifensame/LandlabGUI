@@ -178,8 +178,27 @@ class CanvasPanel(QTabWidget):
                 self._dirty.add(i)
 
     def _render_tab(self, idx: int):
-        """渲染指定标签页（只画看得到的那个）。"""
+        """渲染指定标签页（只画看得到的那个）。渲染异常不影响界面运行。"""
         self._dirty.discard(idx)
+        ws = self._ws
+        if ws is None or not ws.has_grid:
+            return
+        if not ("topographic__elevation" in ws.at_node):
+            return
+        try:
+            self._render_tab_inner(idx)
+        except Exception as e:
+            import traceback
+            tab = self.widget(idx)
+            if hasattr(tab, "ax"):
+                tab.ax.clear()
+                tab.ax.text(0.5, 0.5, tr("渲染出错") + f": {type(e).__name__}",
+                            transform=tab.ax.transAxes, ha="center", va="center",
+                            color="orange")
+                tab.draw()
+            print("[画布] 渲染异常:\n" + traceback.format_exc())
+
+    def _render_tab_inner(self, idx: int):
         ws = self._ws
         if ws is None or not ws.has_grid:
             return
@@ -231,9 +250,31 @@ class CanvasPanel(QTabWidget):
             self._render_tab(idx)
 
     # ================================================= 字段查看器
+    _FIELD_BLACKLIST = ("receiver_node", "upstream_node_order",
+                        "link_to_receiver", "proportions", "adjacent")
+
+    @classmethod
+    def _plottable_fields(cls, ws):
+        """可绘制字段：一维数值数组且长度等于节点数；排除路由编号类内部数据。"""
+        out = []
+        if ws is None or not ws.has_grid:
+            return out
+        n = ws.grid.number_of_nodes
+        for name in ws.at_node.keys():
+            if any(bad in name for bad in cls._FIELD_BLACKLIST):
+                continue
+            arr = ws.at_node[name]
+            if (getattr(arr, "ndim", 0) == 1 and arr.shape[0] == n
+                    and arr.dtype.kind in "fiu" and np.issubdtype(arr.dtype, np.number)):
+                out.append(name)
+        if "topographic__elevation" in out:      # 高程排最前
+            out.remove("topographic__elevation")
+            out.insert(0, "topographic__elevation")
+        return out
+
     def _refresh_field_combo(self):
         """用网格现有字段刷新下拉（保留用户选择）。"""
-        fields = list(self._ws.at_node.keys()) if self._ws and self._ws.has_grid else []
+        fields = self._plottable_fields(self._ws)
         cur = self.field_combo.currentText() or "topographic__elevation"
         if fields and [self.field_combo.itemText(i) for i in range(self.field_combo.count())] != fields:
             self.field_combo.blockSignals(True)
@@ -286,6 +327,19 @@ class CanvasPanel(QTabWidget):
         self.slider.setValue(nxt)
 
     def _on_slider(self, i):
+        frames = self._frames_provider() or []
+        if not (0 <= i < len(frames)):
+            return
+        try:
+            self._on_slider_inner(i)
+        except Exception as e:
+            self.tab_terrain.ax.clear()
+            self.tab_terrain.ax.text(0.5, 0.5, tr("渲染出错") + f": {type(e).__name__}",
+                                     transform=self.tab_terrain.ax.transAxes,
+                                     ha="center", va="center", color="orange")
+            self.tab_terrain.draw()
+
+    def _on_slider_inner(self, i):
         frames = self._frames_provider() or []
         if not (0 <= i < len(frames)):
             return
