@@ -146,7 +146,12 @@ class AiAssistantDialog(QDialog):
             self.settings.setValue(key, val)
 
         from app.workers.sim_worker import FuncWorker
-        self._worker = FuncWorker(self._call_llm)
+        # Qt 控件只能在主线程访问：先把全部值捕获为字符串再交给工作线程
+        args = (self.desc_edit.toPlainText().strip(),
+                base_url, self.key_edit.text().strip(),
+                self.model_edit.text().strip(),
+                self.proxy_edit.text().strip() or None)
+        self._worker = FuncWorker(self._call_llm, *args)
         self._worker.sig_result.connect(self._on_result)
         self._worker.sig_done.connect(self._on_done)
         self._worker.sig_log.connect(self.status.setText)
@@ -155,15 +160,11 @@ class AiAssistantDialog(QDialog):
         self.status.setText(tr("正在请求 AI（可能需要 10~60 秒）…"))
         self._worker.start()
 
-    def _call_llm(self):
-        from app.core.i18n import tr as _  # noqa: F401  (保持 i18n 引用)
-        proxy = self.proxy_edit.text().strip() or None
+    def _call_llm(self, desc, base_url, api_key, model, proxy):
         proxies = {"http": proxy, "https": proxy} if proxy else None
         system = ai_assistant.build_system_prompt(self.component_names, self.plugin_names)
-        text = ai_assistant.ask_llm(system, ai_assistant.build_user_prompt(
-            self.desc_edit.toPlainText().strip()),
-            self.url_edit.text().strip(), self.key_edit.text().strip(),
-            self.model_edit.text().strip(), proxies=proxies)
+        text = ai_assistant.ask_llm(system, ai_assistant.build_user_prompt(desc),
+                                    base_url, api_key, model, proxies=proxies)
         self._raw_text = text
         return ai_assistant.extract_workflow_json(text)
 

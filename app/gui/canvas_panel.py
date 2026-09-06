@@ -291,11 +291,18 @@ class CanvasPanel(QTabWidget):
         z, vmin, vmax, title = frames[i]
         tab = self.tab_terrain
         tab.reset_ax()
-        shape = getattr(self._ws.grid, "shape", None) if self._ws else None
-        if shape and len(shape) == 2 and shape[0] * shape[1] == z.size:
-            tab.ax.imshow(np.asarray(z, float).reshape(shape), origin="lower",
-                          cmap="terrain", vmin=vmin, vmax=vmax, interpolation="nearest")
-            tab.ax.set_title(f"{title} ｜ {tr('高程 (m)')} {vmin:.0f}~{vmax:.0f}")
+        shape = getattr(self._ws.grid, "shape", None) if (self._ws and self._ws.has_grid) else None
+        compatible = (shape is not None and len(shape) == 2
+                      and shape[0] * shape[1] == int(z.size))
+        if not compatible:
+            # 网格已重建为不同形状：旧帧无法映射，提示而不是崩溃
+            tab.ax.text(0.5, 0.5, tr("回放帧与当前网格形状不符（网格已重建）"),
+                        transform=tab.ax.transAxes, ha="center", va="center", color="orange")
+            tab.draw()
+            return
+        tab.ax.imshow(np.asarray(z, float).reshape(shape), origin="lower",
+                      cmap="terrain", vmin=vmin, vmax=vmax, interpolation="nearest")
+        tab.ax.set_title(f"{title} ｜ {tr('高程 (m)')} {vmin:.0f}~{vmax:.0f}")
         tab.draw()
 
     def _render_profile_tab(self):

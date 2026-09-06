@@ -559,21 +559,22 @@ class MainWindow(QMainWindow):
             self._last_progress_pct = -1
 
     def _on_snapshot(self, z):
-        """主线程入口（worker 信号）：只存最新帧并启动节流定时器，
-        真正的绘制在 _do_canvas_refresh 里合并执行。"""
+        """主线程入口（worker 信号）。
+
+        帧收集（回放/动画数据）每个快照都做——只是一次小数组复制，很便宜；
+        画布绘制则合并到 ≥300ms 一次，防止高频重绘淹没界面。
+        """
+        self._collect_frame(z)
         self._pending_z = z
         if not self._refresh_timer.isActive():
             self._refresh_timer.start()
 
     def _do_canvas_refresh(self):
-        """节流后的实际绘制（≤3.3 次/秒），期间被跳过的快照直接丢弃。"""
+        """节流后的实际绘制（≤3.3 次/秒），期间被跳过的快照只更新数据不重绘。"""
+        self._pending_z = None
         if not self.ws.has_grid:
-            self._pending_z = None
             return
         self.canvas.update_all(self.ws)
-        if self._pending_z is not None:
-            self._collect_frame(self._pending_z)
-        self._pending_z = None
 
     def _collect_frame(self, z):
         shape = getattr(self.ws.grid, "shape", None)
