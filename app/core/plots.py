@@ -11,10 +11,12 @@ from .i18n import tr
 
 
 # ---------------------------------------------------------------- 字段渲染
-def draw_field(ax, grid, values, cmap="terrain", colorbar_fig=None):
+def draw_field(ax, grid, values, cmap="terrain", colorbar_fig=None,
+               vmin=None, vmax=None):
     """
     在 ax 上渲染节点字段（规则网格用 imshow，非规则网格用三角剖分）。
-    colorbar_fig 传 Figure 时自动附加 colorbar；返回 mappable 或 None。
+    colorbar_fig 传 Figure 时自动附加 colorbar；vmin/vmax 可覆盖色标范围。
+    返回 mappable 或 None。
     """
     vals = np.asarray(values, dtype=float)
     finite = np.isfinite(vals)
@@ -22,7 +24,8 @@ def draw_field(ax, grid, values, cmap="terrain", colorbar_fig=None):
         ax.text(0.5, 0.5, tr("无有效数据"), transform=ax.transAxes,
                 ha="center", va="center", color="gray")
         return None
-    vmin, vmax = np.nanmin(vals[finite]), np.nanmax(vals[finite])
+    vmin = float(np.nanmin(vals[finite])) if vmin is None else float(vmin)
+    vmax = float(np.nanmax(vals[finite])) if vmax is None else float(vmax)
     shape = getattr(grid, "shape", None)
     m = None
     if shape is not None and len(shape) == 2 and grid.number_of_nodes == shape[0] * shape[1]:

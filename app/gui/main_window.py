@@ -61,6 +61,7 @@ class MainWindow(QMainWindow):
         # ---- 面板 ----
         self.console = ConsolePanel()
         self.canvas = CanvasPanel()
+        self.canvas.set_frames_provider(lambda: self._frames)
         self.workflow_panel = WorkflowPanel(self.ws, self.registry)
         self.editor = CodeEditorPanel(self.ws, self.registry,
                                       on_snapshot=self._on_snapshot, log=self.log)
@@ -244,6 +245,11 @@ class MainWindow(QMainWindow):
 
         # ---- 工具菜单 ----
         m_tools = self.menuBar().addMenu(tr("工具(&T)"))
+        act_ai = QAction(tr("🤖 AI 参数助手..."), self)
+        act_ai.setToolTip(tr("自然语言描述场景，AI 自动配置工作流"))
+        act_ai.triggered.connect(self.open_ai_assistant)
+        m_tools.addAction(act_ai)
+        m_tools.addSeparator()
         act_sweep = QAction(tr("参数扫描批量实验..."), self)
         act_sweep.triggered.connect(self.open_sweep)
         m_tools.addAction(act_sweep)
@@ -588,12 +594,14 @@ class MainWindow(QMainWindow):
             self._frames = frames
             self._frame_bytes = sum(f[0].nbytes for f in frames)
         self.act_anim.setEnabled(len(self._frames) >= 2)
+        self.canvas.update_replay_range(len(self._frames))
 
     def _frames_clear(self):
         self._frames.clear()
         self._frame_vlims = [None, None]
         self._frame_bytes = 0
         self.act_anim.setEnabled(False)
+        self.canvas.update_replay_range(0)
 
     def _on_done(self, ok: bool, msg: str):
         self._set_running(False)
@@ -662,6 +670,47 @@ class MainWindow(QMainWindow):
     def _on_anim_done(self, ok, msg):
         self.log(msg if ok else tr("导出失败: {0}").format(msg))
         self.anim_worker = None
+
+    # ================================================== AI 参数助手
+    def open_ai_assistant(self):
+        if self._busy():
+            QMessageBox.warning(self, tr("忙碌"), tr("有任务正在后台运行，请等待完成"))
+            return
+        from .ai_dialog import AiAssistantDialog
+        comp_names = list(self.registry.schemas.keys())
+        plug_names = list(self.registry.plugins.keys())
+        dlg = AiAssistantDialog(self.settings, comp_names, plug_names, self)
+        if not dlg.exec():
+            return
+        wf = dlg.result_workflow()
+        if not wf:
+            return
+        self.workflow_panel.load_workflow(wf)
+        # AI 场景必须重建网格
+        self.workflow_panel.rebuild_check.setChecked(True)
+        self.log(tr("AI 已生成工作流: {0} ({1} 个步骤)").format(
+            wf.get("name", tr("未命名")), len(wf.get("steps", []))))
+        self.log(tr("AI 可能给出不完美的参数，建议点开各步骤核对后再运行"))
+        QMessageBox.information(
+            self, tr("AI 参数助手"),
+            tr("工作流已载入。请核对各步骤参数（尤其数值量级），然后点 ▶ 运行。"))
+
+    # ================================================== 参数扫描
+    def open_sweep(self):
+        dlg = AiAssistantDialog(self.settings, comp_names, plug_names, self)
+        if not dlg.exec():
+            return
+        wf = dlg.result_workflow()
+        if not wf:
+            return
+        self.workflow_panel.load_workflow(wf)
+        self.workflow_panel.rebuild_check.setChecked(True)
+        self.log(tr("AI 已生成工作流: {0} ({1} 个步骤)").format(
+            wf.get("name", tr("未命名")), len(wf.get("steps", []))))
+        self.log(tr("AI 可能给出不完美的参数，建议点开各步骤核对后再运行"))
+        QMessageBox.information(
+            self, tr("AI 参数助手"),
+            tr("工作流已载入。请核对各步骤参数（尤其数值量级），然后点 ▶ 运行。"))
 
     # ================================================== 参数扫描
     def open_sweep(self):

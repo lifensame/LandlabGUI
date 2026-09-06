@@ -14,9 +14,9 @@ matplotlib.use("QtAgg")
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
 from matplotlib.figure import Figure
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QTabWidget,
-                               QVBoxLayout, QWidget)
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QPushButton,
+                               QSlider, QTabWidget, QVBoxLayout, QWidget)
 
 from ..core import plots
 from ..core.i18n import tr
@@ -97,7 +97,7 @@ class CanvasPanel(QTabWidget):
                                self.tab_profile, self.tab_history, self.tab_3d]):
             self.addTab(t, self.TABS[i])
 
-        # ---- 地形页辅助条：取点剖面 + 查值显示 ----
+        # ---- 地形页辅助条：取点剖面 + 字段查看器 + 查值显示 ----
         bar = QHBoxLayout()
         self.btn_pick = QPushButton(tr("📏 取点剖面"))
         self.btn_pick.setCheckable(True)
@@ -108,9 +108,39 @@ class CanvasPanel(QTabWidget):
         self.pick_hint.setStyleSheet("color:#3daee9;")
         bar.addWidget(self.pick_hint)
         bar.addStretch()
+        bar.addWidget(QLabel(tr("查看字段:")))
+        self.field_combo = QComboBox()
+        self.field_combo.setMinimumWidth(180)
+        self.field_combo.setToolTip(tr("切换地形页显示的字段（运行越多样组件，可选字段越多）"))
+        self.field_combo.currentTextChanged.connect(self._on_view_field_changed)
+        bar.addWidget(self.field_combo)
         wrap = QWidget()
         wrap.setLayout(bar)
         self.tab_terrain.layout().insertWidget(1, wrap)
+
+        # ---- 回放条：模拟结束后拖动滑块逐帧回放演化过程 ----
+        rbar = QHBoxLayout()
+        self.btn_play = QPushButton(tr("▶ 回放"))
+        self.btn_play.setCheckable(True)
+        self.btn_play.setEnabled(False)
+        self.btn_play.setToolTip(tr("按时间轴回放本次模拟的演化过程"))
+        self.btn_play.toggled.connect(self._toggle_replay)
+        rbar.addWidget(self.btn_play)
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setEnabled(False)
+        self.slider.setToolTip(tr("拖动查看不同时刻的地形"))
+        self.slider.valueChanged.connect(self._on_slider)
+        rbar.addWidget(self.slider, stretch=1)
+        self.frame_label = QLabel("")
+        self.frame_label.setStyleSheet("color:#9aa0a6;")
+        rbar.addWidget(self.frame_label)
+        wrap_r = QWidget()
+        wrap_r.setLayout(rbar)
+        self.tab_terrain.layout().insertWidget(2, wrap_r)
+        self._replay_timer = QTimer(self)
+        self._replay_timer.setInterval(180)
+        self._replay_timer.timeout.connect(self._replay_tick)
+        self._frames_provider = lambda: []
 
         self.info_label = QLabel(tr("💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移（⌂◀▶ 在用过缩放后才亮起）"))
         self.info_label.setStyleSheet("color:#9aa0a6;")
@@ -119,7 +149,7 @@ class CanvasPanel(QTabWidget):
         v = QVBoxLayout(wrap2)
         v.setContentsMargins(4, 0, 4, 2)
         v.addWidget(self.info_label)
-        self.tab_terrain.layout().insertWidget(2, wrap2)
+        self.tab_terrain.layout().insertWidget(3, wrap2)
 
         # ---- 事件 ----
         self._picking = False
@@ -139,6 +169,7 @@ class CanvasPanel(QTabWidget):
             return
         if not ("topographic__elevation" in ws.at_node):
             return
+        self._refresh_field_combo()
         idx = self.currentIndex()
         self._render_tab(idx)
         for i in range(self.count()):
@@ -158,7 +189,17 @@ class CanvasPanel(QTabWidget):
         if idx == 0:
             self.tab_terrain.reset_ax()
             ax = self.tab_terrain.ax
-            plots.draw_field(ax, grid, z, colorbar_fig=self.tab_terrain.fig)
+            # 字段查看器：显示下拉框选中的字段（缺数据时回退高程）
+            field = self.field_combo.currentText() or "topographic__elevation"
+            shown, fallback = z, False
+            if field != "topographic__elevation" and field in ws.at_node:
+                shown = ws.at_node[field]
+            elif field != "topographic__elevation":
+                fallback = True
+            plots.draw_field(ax, grid, shown, colorbar_fig=self.tab_terrain.fig)
+            if fallback:
+                ax.text(0.5, 0.02, tr("该字段尚无数据（先运行产生它的组件）"),
+                        transform=ax.transAxes, ha="center", color="orange")
             self._draw_custom_profile_lines(ax, grid)
             self.tab_terrain.draw()
         elif idx == 1:
@@ -187,6 +228,75 @@ class CanvasPanel(QTabWidget):
     def _on_tab_changed(self, idx):
         if idx in self._dirty:
             self._render_tab(idx)
+
+    # ================================================= 字段查看器
+    def _refresh_field_combo(self):
+        """用网格现有字段刷新下拉（保留用户选择）。"""
+        fields = list(self._ws.at_node.keys()) if self._ws and self._ws.has_grid else []
+        cur = self.field_combo.currentText() or "topographic__elevation"
+        if fields and [self.field_combo.itemText(i) for i in range(self.field_combo.count())] != fields:
+            self.field_combo.blockSignals(True)
+            self.field_combo.clear()
+            self.field_combo.addItems(fields)
+            self.field_combo.blockSignals(False)
+        if cur in fields:
+            self.field_combo.setCurrentText(cur)
+
+    def _on_view_field_changed(self, field):
+        if self._ws and self._ws.has_grid:
+            self._render_tab(0)
+
+    # ================================================= 时间轴回放
+    def set_frames_provider(self, fn):
+        """注入帧列表访问器：[(z2d, vmin, vmax, title), ...]"""
+        self._frames_provider = fn
+        self.update_replay_range(len(fn() or []))
+
+    def update_replay_range(self, n: int):
+        self.slider.blockSignals(True)
+        self.slider.setRange(0, max(0, n - 1))
+        self.slider.setEnabled(n >= 2)
+        self.btn_play.setEnabled(n >= 2)
+        if n < 2:
+            self.slider.setValue(0)
+            self.btn_play.setChecked(False)
+            self.frame_label.setText("")
+        self.slider.blockSignals(False)
+
+    def _toggle_replay(self, on):
+        if on:
+            frames = self._frames_provider() or []
+            if len(frames) < 2:
+                self.btn_play.setChecked(False)
+                return
+            if self.slider.value() >= len(frames) - 1:
+                self.slider.setValue(0)          # 从头播
+            self._replay_timer.start()
+        else:
+            self._replay_timer.stop()
+
+    def _replay_tick(self):
+        frames = self._frames_provider() or []
+        nxt = self.slider.value() + 1
+        if nxt >= len(frames):
+            self.btn_play.setChecked(False)      # 播完自动停
+            self._replay_timer.stop()
+            return
+        self.slider.setValue(nxt)
+
+    def _on_slider(self, i):
+        frames = self._frames_provider() or []
+        if not (0 <= i < len(frames)):
+            return
+        z, vmin, vmax, title = frames[i]
+        tab = self.tab_terrain
+        tab.reset_ax()
+        shape = getattr(self._ws.grid, "shape", None) if self._ws else None
+        if shape and len(shape) == 2 and shape[0] * shape[1] == z.size:
+            tab.ax.imshow(np.asarray(z, float).reshape(shape), origin="lower",
+                          cmap="terrain", vmin=vmin, vmax=vmax, interpolation="nearest")
+            tab.ax.set_title(f"{title} ｜ {tr('高程 (m)')} {vmin:.0f}~{vmax:.0f}")
+        tab.draw()
 
     def _render_profile_tab(self):
         ax = self.tab_profile.ax

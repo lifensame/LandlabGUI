@@ -138,16 +138,25 @@ class CompareDialog(QDialog):
         self.resize(1000, 560)
         lay = QVBoxLayout(self)
 
-        fig = Figure(figsize=(10, 4.6))
+        fig = Figure(figsize=(12, 4.4))
         canvas = FigureCanvasQTAgg(fig)
         lay.addWidget(canvas, stretch=1)
 
         za, zb = np.asarray(a.z, float), np.asarray(b.z, float)
-        for ax, snap, z, tag in ((fig.add_subplot(1, 2, 1), a, za, "A"),
-                                 (fig.add_subplot(1, 2, 2), b, zb, "B")):
+        for ax, snap, z, tag in ((fig.add_subplot(1, 3, 1), a, za, "A"),
+                                 (fig.add_subplot(1, 3, 2), b, zb, "B")):
             grid = _GridStub(snap)
             plots.draw_field(ax, grid, z, colorbar_fig=fig)
             ax.set_title(f"{tag}: {snap.name}")
+        # 第三幅：B−A 侵蚀/沉积差值图（蓝=侵蚀下切, 红=堆积）
+        if za.shape == zb.shape:
+            diff = zb - za
+            dmax = float(np.nanmax(np.abs(diff))) or 1.0
+            ax = fig.add_subplot(1, 3, 3)
+            grid = _GridStub(b)
+            plots.draw_field(ax, grid, diff, cmap="RdBu_r",
+                             colorbar_fig=fig, vmin=-dmax, vmax=dmax)
+            ax.set_title(tr("B−A 差值: 蓝=侵蚀, 红=堆积"))
 
         za, zb = za.astype(float), zb.astype(float)
         if za.size == zb.size:

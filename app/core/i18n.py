@@ -412,6 +412,42 @@ _STR_EN = {
     "插件已重载: 共 {0} 个自定义功能": "Plugins reloaded: {0} custom feature(s)",
     "组件库: {0} 个 landlab 组件, {1} 个自定义插件":
         "Library: {0} landlab components, {1} plugins",
+    # ---- 表单分组 / AI 助手 ----
+    "核心参数": "Core Parameters",
+    "高级参数（{0} 项）": "Advanced ({0} items)",
+    "整数（留空=用组件默认值）": "int (empty = component default)",
+    "工具(&T)": "&Tools",
+    "🤖 AI 参数助手...": "🤖 AI Parameter Assistant...",
+    "自然语言描述场景，AI 自动配置工作流":
+        "Describe a scenario in natural language; the AI builds the workflow",
+    "AI 参数助手": "AI Parameter Assistant",
+    "① 场景描述": "① Scenario",
+    "② 接口配置": "② API Settings",
+    "服务商预设": "Provider preset",
+    "— 选择服务商预设 —": "— choose a provider —",
+    "API 地址": "API URL",
+    "API Key": "API Key",
+    "模型名": "Model",
+    "网络代理": "Proxy",
+    "留空=无需鉴权（本地 Ollama）": "empty = no auth (local Ollama)",
+    "留空=系统代理；如 http://127.0.0.1:7890": "empty = system proxy; e.g. http://127.0.0.1:7890",
+    "查看原始回复": "Show raw reply",
+    "AI 原始回复（出错时用于排查）": "Raw AI reply (for troubleshooting)",
+    "✨ 生成工作流": "✨ Generate Workflow",
+    "生成中…": "Generating…",
+    "正在请求 AI（可能需要 10~60 秒）…": "Requesting AI (10–60 s)…",
+    "正在生成中，请等待完成": "Generation in progress; please wait",
+    "生成失败": "Generation failed",
+    "生成成功": "Generated",
+    "AI 生成的步骤全部无效，请换一种描述或更强的模型":
+        "All AI-generated steps were invalid; rephrase or use a stronger model",
+    "请先描述场景": "Describe the scenario first",
+    "请填写 API 地址（或选择服务商预设）": "Fill in the API URL (or pick a preset)",
+    "AI 已生成工作流: {0} ({1} 个步骤)": "AI built workflow: {0} ({1} steps)",
+    "AI 可能给出不完美的参数，建议点开各步骤核对后再运行":
+        "AI parameters may be imperfect — review each step before running",
+    "工作流已载入。请核对各步骤参数（尤其数值量级），然后点 ▶ 运行。":
+        "Workflow loaded. Review the step parameters, then hit ▶ Run.",
 }
 
 # 分类名英文
