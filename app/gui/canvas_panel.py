@@ -111,6 +111,7 @@ class CanvasPanel(QTabWidget):
         bar.addWidget(QLabel(tr("查看字段:")))
         self.field_combo = QComboBox()
         self.field_combo.setMinimumWidth(180)
+        self.field_combo.addItem("topographic__elevation")
         self.field_combo.setToolTip(tr("切换地形页显示的字段（运行越多样组件，可选字段越多）"))
         self.field_combo.currentTextChanged.connect(self._on_view_field_changed)
         bar.addWidget(self.field_combo)

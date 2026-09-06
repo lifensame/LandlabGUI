@@ -383,6 +383,9 @@ class MainWindow(QMainWindow):
             self.workflow_panel.add_step(entry)
 
     def new_grid(self):
+        if self._busy():
+            QMessageBox.warning(self, tr("忙碌"), tr("有任务正在后台运行，请等待完成或停止"))
+            return
         dlg = GridDialog(self)
         if not dlg.exec():
             return

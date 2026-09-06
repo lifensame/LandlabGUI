@@ -71,7 +71,7 @@ class CodeWorker(QThread):
             import sys
             with contextlib.redirect_stdout(buf):
                 exec(compile(self.code, "<GUI代码片段>", "exec"), g)
-        except Exception as e:
+        except BaseException as e:      # SystemExit/KeyboardExit 也要回传，避免无声死亡
             ok = False
             msg = f"{type(e).__name__}: {e}"
             buf.write(traceback.format_exc())

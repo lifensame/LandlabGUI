@@ -98,6 +98,9 @@ class HistoryPanel(QWidget):
         if len(sel) != 1:
             QMessageBox.information(self, tr("回滚到此快照"), tr("请选中一条快照"))
             return
+        if self.mw._busy():
+            QMessageBox.warning(self.mw, tr("忙碌"), tr("有任务正在后台运行，请等待完成或停止"))
+            return
         snap = sel[0]
         mw = self.mw
         if not snap.wf.get("grid"):
