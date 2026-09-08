@@ -302,9 +302,21 @@ class MainWindow(QMainWindow):
         self._sync_lang_actions()
 
         # ---- 顶部主工具栏 ----
+        # 紧凑文字标签（不污染菜单里的详细全称）
+        act_new.setIconText(tr("➕ 新建网格"))
+        act_dem.setIconText(tr("🌐 在线DEM"))
+        act_export.setIconText(tr("📤 导出地形"))
+        act_open.setIconText(tr("📂 打开"))
+        act_save.setIconText(tr("💾 保存"))
+        act_ai.setIconText(tr("🤖 AI助手"))
+        act_sweep.setIconText(tr("📊 参数扫描"))
+        act_report.setIconText(tr("📑 实验报告"))
+        act_reload.setIconText(tr("🔄 重载插件"))
+
         tb = self.addToolBar(tr("主工具栏"))
         tb.setObjectName("MainToolBar")
         tb.setMovable(False)
+        tb.setFloatable(False)
         tb.setStyleSheet("""
             QToolBar {
                 background: #16181f;
@@ -317,7 +329,7 @@ class MainWindow(QMainWindow):
                 color: #e6edf3;
                 border: 1px solid #2e3442;
                 border-radius: 6px;
-                padding: 5px 12px;
+                padding: 4px 10px;
                 font-weight: 500;
                 font-size: 12px;
             }
@@ -335,9 +347,6 @@ class MainWindow(QMainWindow):
                 border-color: #232730;
             }
         """)
-        tb.addAction(self.act_start)
-        tb.addAction(self.act_stop)
-        tb.addSeparator()
         tb.addAction(act_new)
         tb.addAction(act_dem)
         tb.addAction(act_export)
@@ -443,8 +452,10 @@ class MainWindow(QMainWindow):
         if geo is not None:
             self.restoreGeometry(geo)
         state = self.settings.value("windowState")
-        if state is not None and self.settings.value("winstate_ver", 0, int) == 2:
+        if state is not None and self.settings.value("winstate_ver", 0, int) == 3:
             self.restoreState(state)
+        else:
+            self.settings.setValue("winstate_ver", 3)
         rf = self.settings.value("recent_files", []) or []
         if isinstance(rf, str):          # QSettings 单条目时可能返回纯字符串
             rf = [rf]
@@ -468,7 +479,7 @@ class MainWindow(QMainWindow):
                     w.wait(5000)
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
-        self.settings.setValue("winstate_ver", 2)
+        self.settings.setValue("winstate_ver", 3)
         self.settings.setValue("recent_files", self.recent_files)
         super().closeEvent(ev)
 
@@ -1001,6 +1012,7 @@ class MainWindow(QMainWindow):
             from ..core.i18n import restart_command
             self.settings.setValue("geometry", self.saveGeometry())
             self.settings.setValue("windowState", self.saveState())
+            self.settings.setValue("winstate_ver", 3)
             self.settings.setValue("recent_files", self.recent_files)
             QProcess.startDetached(restart_command()[0], restart_command()[1:])
             _sys.exit(0)
