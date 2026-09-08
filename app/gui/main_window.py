@@ -90,6 +90,9 @@ class MainWindow(QMainWindow):
             from .wizard import WelcomeWizard
             WelcomeWizard(self).exec()
 
+        # 启动 3 秒后静默检查更新（仅在存在新版本时友好提醒）
+        QTimer.singleShot(3000, lambda: self.check_for_updates(interactive=False))
+
     # ================================================== 日志
     def _boot_log(self, msg: str):
         if hasattr(self, "console"):
@@ -281,12 +284,19 @@ class MainWindow(QMainWindow):
         act_doc = QAction(tr("插件开发指南"), self)
         act_doc.triggered.connect(self._open_plugin_doc)
         m_help.addAction(act_doc)
+        m_help.addSeparator()
+        act_update = QAction(tr("检查更新..."), self)
+        act_update.triggered.connect(lambda: self.check_for_updates(interactive=True))
+        m_help.addAction(act_update)
+        m_help.addSeparator()
         act_about = QAction(tr("关于"), self)
+        from ..core.version import __version__
         act_about.triggered.connect(lambda: QMessageBox.about(
             self, tr("关于"),
-            "<b>Landlab Geomorphology Workbench</b><br>" + tr("Landlab 地貌模拟工作台") +
+            f"<b>Landlab Geomorphology Workbench</b> v{__version__}<br>" + tr("Landlab 地貌模拟工作台") +
             "<br><br>87 components · plugins · parameter sweep · reports<br>"
-            "PySide6 · Landlab 2.x"))
+            "PySide6 · Landlab 2.x<br><br>"
+            "<a href='https://github.com/lifensame/LandlabGUI'>https://github.com/lifensame/LandlabGUI</a>"))
         m_help.addAction(act_about)
 
         # ---- 语言切换（组件名/说明 中文 <-> English）----
@@ -927,6 +937,36 @@ class MainWindow(QMainWindow):
     def _show_wizard(self):
         from .wizard import WelcomeWizard
         WelcomeWizard(self).exec()
+
+    def check_for_updates(self, interactive: bool = True):
+        """在线检查 GitHub 是否有新版本（异步子线程，零阻塞）。"""
+        from ..core.version import __version__
+        from ..core.updater import check_for_updates as _do_check
+        from .update_dialog import UpdateDialog
+
+        proxy = self.settings.value("ai_proxy", "") or None
+        if interactive:
+            self.statusBar().showMessage(tr("正在检查更新..."), 5000)
+
+        worker = FuncWorker(_do_check, __version__, proxy=proxy)
+        self._update_worker = worker
+
+        def _on_result(info):
+            if interactive:
+                UpdateDialog(info, self).exec()
+            elif info.get("has_update"):
+                UpdateDialog(info, self).exec()
+
+        def _on_done(ok, msg):
+            if not ok and interactive:
+                QMessageBox.warning(
+                    self, tr("检查更新"),
+                    tr("无法获取更新信息，请检查网络连接或代理设置。\n错误: ") + str(msg)
+                )
+
+        worker.sig_result.connect(_on_result)
+        worker.sig_done.connect(_on_done)
+        worker.start()
 
     # ================================================== 语言切换
     def _sync_lang_actions(self):

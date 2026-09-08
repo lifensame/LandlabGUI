@@ -5,3 +5,5 @@
 - app.gui   界面层：PySide6 窗口与面板
 - app.workers  后台线程：模拟执行、代码片段执行
 """
+
+from .core.version import __version__
