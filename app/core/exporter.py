@@ -177,13 +177,93 @@ def export_river_shapefile(nmg, path, epsg=None, log=print):
     w.close()
 
     if epsg:
-        prj = ('GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
-               'SPHEROID["WGS_1984",6378137.0,298.257223563]],'
-               'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]')
-        for s in ["_nodes", "_links"]:
-            with open(base + s + ".prj", "w") as f:
-                f.write(prj)
+        prj = get_prj_wkt(epsg)
+        if prj:
+            for s in ["_nodes", "_links"]:
+                with open(base + s + ".prj", "w", encoding="utf-8") as f:
+                    f.write(prj)
+            log(f"  河网投影 (PRJ: EPSG:{epsg}) 已写入")
     log(f"  河网 (Shapefile) -> {base}_nodes.shp, {base}_links.shp")
+
+
+def get_prj_wkt(epsg: int | str | None) -> str:
+    """根据 EPSG 代码生成 ESRI/OGC WKT PRJ 字符串。
+    优先尝试 pyproj / rasterio，其次内置常用坐标系（WGS84, Web Mercator, UTM, CGCS2000 等）。
+    """
+    if not epsg:
+        return ""
+    try:
+        epsg_int = int(str(epsg).upper().replace("EPSG:", "").strip())
+    except (ValueError, TypeError):
+        return ""
+
+    # 1. 尝试 pyproj
+    try:
+        import pyproj
+        return pyproj.CRS.from_epsg(epsg_int).to_wkt(version="WKT1_ESRI")
+    except Exception:
+        pass
+
+    # 2. 尝试 rasterio
+    try:
+        from rasterio.crs import CRS
+        return CRS.from_epsg(epsg_int).to_wkt()
+    except Exception:
+        pass
+
+    # 3. 常见内置投影代码库
+    if epsg_int == 4326:
+        return ('GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
+                'SPHEROID["WGS_1984",6378137.0,298.257223563]],'
+                'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]')
+    elif epsg_int == 3857:
+        return ('PROJCS["WGS_1984_Web_Mercator_Auxiliary_Sphere",'
+                'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
+                'SPHEROID["WGS_1984",6378137.0,298.257223563]],'
+                'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],'
+                'PROJECTION["Mercator_Auxiliary_Sphere"],'
+                'PARAMETER["False_Easting",0.0],PARAMETER["False_Northing",0.0],'
+                'PARAMETER["Central_Meridian",0.0],PARAMETER["Standard_Parallel_1",0.0],'
+                'PARAMETER["Auxiliary_Sphere_Type",0.0],UNIT["Meter",1.0]]')
+    elif epsg_int == 4490:  # CGCS2000
+        return ('GEOGCS["GCS_China_Geodetic_Coordinate_System_2000",'
+                'DATUM["D_China_2000",SPHEROID["CGCS2000",6378137.0,298.257222101]],'
+                'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]')
+    elif 32601 <= epsg_int <= 32660:  # WGS 84 / UTM zone 1N to 60N
+        zone = epsg_int - 32600
+        cm = zone * 6 - 183
+        return (f'PROJCS["WGS_1984_UTM_Zone_{zone}N",'
+                'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
+                'SPHEROID["WGS_1984",6378137.0,298.257223563]],'
+                'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],'
+                'PROJECTION["Transverse_Mercator"],'
+                'PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],'
+                f'PARAMETER["Central_Meridian",{cm}.0],PARAMETER["Scale_Factor",0.9996],'
+                'PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]')
+    elif 32701 <= epsg_int <= 32760:  # WGS 84 / UTM zone 1S to 60S
+        zone = epsg_int - 32700
+        cm = zone * 6 - 183
+        return (f'PROJCS["WGS_1984_UTM_Zone_{zone}S",'
+                'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
+                'SPHEROID["WGS_1984",6378137.0,298.257223563]],'
+                'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],'
+                'PROJECTION["Transverse_Mercator"],'
+                'PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",10000000.0],'
+                f'PARAMETER["Central_Meridian",{cm}.0],PARAMETER["Scale_Factor",0.9996],'
+                'PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]')
+
+    # 4. 尝试轻量在线抓取（带短超时，失败则回退基础格式）
+    try:
+        import requests
+        resp = requests.get(f"https://epsg.io/{epsg_int}.esriwkt", timeout=2)
+        if resp.status_code == 200 and ("PROJCS" in resp.text or "GEOGCS" in resp.text):
+            return resp.text.strip()
+    except Exception:
+        pass
+
+    return (f'GEOGCS["EPSG:{epsg_int}",DATUM["D_WGS_1984",'
+            'SPHEROID["WGS_1984",6378137.0,298.257223563]],'
+            'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]')
 
 
 def export_river_csv(nmg, path, log=print):

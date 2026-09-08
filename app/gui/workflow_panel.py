@@ -66,10 +66,11 @@ class StepEditDialog(QDialog):
 
 
 class WorkflowPanel(QWidget):
-    def __init__(self, workspace, registry, parent=None):
+    def __init__(self, workspace, registry, on_changed=None, parent=None):
         super().__init__(parent)
         self.ws = workspace
         self.registry = registry
+        self.on_changed = on_changed
         self.steps: list[dict] = []
         self._seq = 0
         # 工作流级网格配置（来自预设/文件载入；交互建网格后默认沿用现有网格）
@@ -78,14 +79,79 @@ class WorkflowPanel(QWidget):
         self.boundary_cfg = None
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(10)
 
         # ---- 运行控制（大按钮常驻顶部，不用去工具栏找） ----
         run_row = QHBoxLayout()
+        run_row.setSpacing(10)
         self.btn_run_big = QPushButton(tr("▶ 运行工作流 (F5)"))
-        self.btn_run_big.setMinimumHeight(42)
-        self.btn_run_big.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.btn_run_big.setMinimumHeight(44)
+        self._style_run_idle = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10b981);
+                color: #ffffff;
+                border: 1px solid #059669;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 14px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #047857, stop:1 #059669);
+                border-color: #34d399;
+            }
+            QPushButton:pressed {
+                background: #064e3b;
+            }
+            QPushButton:disabled {
+                background: #1f242d;
+                color: #555d6e;
+                border-color: #2b303d;
+            }
+        """
+        self._style_stop_idle = """
+            QPushButton {
+                background: #27191d;
+                color: #f87171;
+                border: 1px solid #5c1d24;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background: #3f1d24;
+                border-color: #f87171;
+                color: #ffffff;
+            }
+            QPushButton:disabled {
+                background: #1f242d;
+                color: #555d6e;
+                border-color: #2b303d;
+            }
+        """
+        self._style_stop_active = """
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #dc2626, stop:1 #ef4444);
+                color: #ffffff;
+                border: 1px solid #b91c1c;
+                border-radius: 8px;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background: #b91c1c;
+            }
+            QPushButton:pressed {
+                background: #991b1b;
+            }
+        """
+        self.btn_run_big.setStyleSheet(self._style_run_idle)
         self.btn_stop_big = QPushButton(tr("■ 停止"))
-        self.btn_stop_big.setMinimumHeight(42)
+        self.btn_stop_big.setMinimumHeight(44)
+        self.btn_stop_big.setStyleSheet(self._style_stop_idle)
         self.btn_stop_big.setEnabled(False)
         run_row.addWidget(self.btn_run_big, stretch=3)
         run_row.addWidget(self.btn_stop_big, stretch=1)
@@ -93,8 +159,10 @@ class WorkflowPanel(QWidget):
 
         # ---- 网格与时间 ----
         h_top = QHBoxLayout()
+        h_top.setSpacing(10)
         gb_g = QGroupBox(tr("网格来源"))
         fg = QVBoxLayout(gb_g)
+        fg.setSpacing(8)
         self.rebuild_check = QCheckBox(tr("运行时按下方配置重建网格"))
         self.rebuild_check.setToolTip(tr("勾选后每次运行都会新建网格（预设场景用）；\n"
                                       "不勾选则沿用当前网格，可反复运行累积演化。"))
@@ -102,11 +170,14 @@ class WorkflowPanel(QWidget):
         fg.addWidget(self.rebuild_check)
         self.grid_desc = QLabel(tr("（尚未配置网格 —— 请 菜单[网格]->新建网格 或载入预设）"))
         self.grid_desc.setWordWrap(True)
+        self.grid_desc.setStyleSheet("color: #60a5fa; background: #162030; border: 1px solid #1e293b; border-radius: 6px; padding: 6px 10px; font-size: 11px;")
         fg.addWidget(self.grid_desc)
-        h_top.addWidget(gb_g)
+        fg.addStretch(1)
+        h_top.addWidget(gb_g, stretch=1)
 
         gb_t = QGroupBox(tr("时间循环"))
         ft = QFormLayout(gb_t)
+        ft.setVerticalSpacing(8)
         self.dt = QDoubleSpinBox()
         self.dt.setDecimals(3)
         self.dt.setRange(0.001, 1e9)
@@ -120,12 +191,13 @@ class WorkflowPanel(QWidget):
         self.refresh_every.setRange(1, 100000)
         self.refresh_every.setValue(10)
         ft.addRow(tr("画面刷新间隔(步)"), self.refresh_every)
-        h_top.addWidget(gb_t)
+        h_top.addWidget(gb_t, stretch=1)
         root.addLayout(h_top)
 
         # ---- 输出配置 ----
         gb_o = QGroupBox(tr("运行后导出（可选）"))
         fo = QFormLayout(gb_o)
+        fo.setVerticalSpacing(8)
         self.do_export = QCheckBox(tr("模拟结束后自动导出"))
         fo.addRow(self.do_export)
         self.out_dir = QLineEdit("gui_results")
@@ -150,19 +222,41 @@ class WorkflowPanel(QWidget):
         # ---- 步骤列表 ----
         gb_s = QGroupBox(tr("处理步骤（自上而下，每个时间步按顺序执行）"))
         vs = QVBoxLayout(gb_s)
+        vs.setSpacing(8)
         self.step_list = QListWidget()
         self.step_list.itemDoubleClicked.connect(self._edit_step)
         vs.addWidget(self.step_list)
         btns = QHBoxLayout()
-        for text, fn in [(tr("编辑参数"), self._edit_step), (tr("上移"), lambda: self._move(-1)),
-                         (tr("下移"), lambda: self._move(1)), (tr("删除"), self._delete_step),
-                         (tr("清空"), self._clear_steps)]:
-            b = QPushButton(text)
-            b.clicked.connect(fn)
-            btns.addWidget(b)
+        btns.setSpacing(8)
+
+        b_edit = QPushButton("✏️ " + tr("编辑参数"))
+        b_edit.setStyleSheet("font-weight: 600; color: #60a5fa; border-color: #1e3a8a;")
+        b_edit.clicked.connect(self._edit_step)
+
+        b_up = QPushButton("⬆ " + tr("上移"))
+        b_up.clicked.connect(lambda: self._move(-1))
+
+        b_down = QPushButton("⬇ " + tr("下移"))
+        b_down.clicked.connect(lambda: self._move(1))
+
+        b_del = QPushButton("🗑️ " + tr("删除"))
+        b_del.setStyleSheet("color: #f87171; border-color: #5c1d24;")
+        b_del.clicked.connect(self._delete_step)
+
+        b_clear = QPushButton("🧹 " + tr("清空"))
+        b_clear.setStyleSheet("color: #94a3b8; border-color: #334155;")
+        b_clear.clicked.connect(self._clear_steps)
+
+        btns.addWidget(b_edit)
+        btns.addWidget(b_up)
+        btns.addWidget(b_down)
+        btns.addStretch(1)
+        btns.addWidget(b_del)
+        btns.addWidget(b_clear)
         vs.addLayout(btns)
-        hint = QLabel(tr("双击步骤编辑参数；分析类组件自动设为\"结束一次\"；"
-                         "在左侧组件库双击任意组件/插件即可添加步骤"))
+
+        hint = QLabel(tr("💡 双击步骤可编辑参数；在左侧组件库双击任意组件/插件即可添加步骤"))
+        hint.setStyleSheet("color: #64748b; font-size: 11px;")
         hint.setWordWrap(True)
         vs.addWidget(hint)
         root.addWidget(gb_s, stretch=1)
@@ -171,6 +265,10 @@ class WorkflowPanel(QWidget):
         """同步顶部大按钮的可用态（主窗口 _set_running 调用）。"""
         self.btn_run_big.setEnabled(not running)
         self.btn_stop_big.setEnabled(running)
+        if running:
+            self.btn_stop_big.setStyleSheet(self._style_stop_active)
+        else:
+            self.btn_stop_big.setStyleSheet(self._style_stop_idle)
 
     # ------------------------------------------------ 网格配置
     def set_grid_config(self, grid_cfg: dict, terrain_cfg: dict | None, boundary: str | None,
@@ -252,12 +350,17 @@ class WorkflowPanel(QWidget):
         self.step_list.clear()
         for i, s in enumerate(self.steps):
             name = s.get("component") or s.get("plugin") or "?"
+            prefix = "📦" if s["kind"] == "component" else "🔌"
             tag = tr("组件") if s["kind"] == "component" else tr("插件")
             display = i18n.display_name(name) if s["kind"] == "component" else name
+            timing = _when_disp(s.get('when', 'every_step'))
             item = QListWidgetItem(
-                f"{i + 1}. [{tag}] {display}  —  {_when_disp(s.get('when', 'every_step'))}")
+                f"{i + 1:02d}.  {prefix} [{tag}] {display}   •   {timing}")
             item.setData(Qt.UserRole, name)
+            item.setToolTip(f"ID: {s.get('id', '')} | {timing}")
             self.step_list.addItem(item)
+        if callable(self.on_changed):
+            self.on_changed()
 
     # ------------------------------------------------ 工作流打包/装载
     def to_workflow(self, name=None) -> dict:

@@ -31,18 +31,41 @@ class _PlotTab(QWidget):
     def __init__(self, title="", xlabel="", ylabel="", toolbar=True, parent=None):
         super().__init__(parent)
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(2, 2, 2, 2)
-        lay.setSpacing(2)
-        self.fig = Figure(figsize=(5, 4))
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(4)
+        self.fig = Figure(figsize=(5, 4), facecolor="#1a1d24")
         self.canvas = FigureCanvasQTAgg(self.fig)
+        self.canvas.setStyleSheet("background: #1a1d24;")
         self.title, self.xlabel, self.ylabel = title, xlabel, ylabel
         self.ax = self.fig.add_subplot(111)
-        self.ax.set_title(title)
-        self.ax.set_xlabel(xlabel)
-        self.ax.set_ylabel(ylabel)
+        self.ax.set_facecolor("#15181e")
+        self.ax.tick_params(colors="#8b949e")
+        for spine in self.ax.spines.values():
+            spine.set_color("#2b303d")
+        self.ax.set_title(title, color="#e6edf3", pad=8, fontdict={"fontweight": 600})
+        self.ax.set_xlabel(xlabel, color="#8b949e")
+        self.ax.set_ylabel(ylabel, color="#8b949e")
         lay.addWidget(self.canvas, stretch=1)
         self.toolbar = NavigationToolbar2QT(self.canvas, self) if toolbar else None
         if self.toolbar is not None:
+            self.toolbar.setStyleSheet("""
+                QToolBar {
+                    background: #1a1d24;
+                    border: 1px solid #2b303d;
+                    border-radius: 6px;
+                    padding: 2px 6px;
+                    spacing: 4px;
+                }
+                QToolButton {
+                    background: transparent;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 3px 6px;
+                }
+                QToolButton:hover {
+                    background: #282d38;
+                }
+            """)
             tb = QHBoxLayout()
             tb.addWidget(self.toolbar)
             lay.addLayout(tb)
@@ -55,12 +78,28 @@ class _PlotTab(QWidget):
         不受重建影响）。
         """
         self.fig.clf()
+        self.fig.set_facecolor("#1a1d24")
         if projection == "3d":
             self.ax = self.fig.add_subplot(111, projection="3d")
+            self.ax.set_facecolor("#15181e")
+            self.ax.tick_params(colors="#8b949e")
+            try:
+                self.ax.xaxis.pane.set_facecolor("#15181e")
+                self.ax.yaxis.pane.set_facecolor("#15181e")
+                self.ax.zaxis.pane.set_facecolor("#15181e")
+                self.ax.xaxis.pane.set_edgecolor("#2b303d")
+                self.ax.yaxis.pane.set_edgecolor("#2b303d")
+                self.ax.zaxis.pane.set_edgecolor("#2b303d")
+            except Exception:
+                pass
         else:
             self.ax = self.fig.add_subplot(111)
-            self.ax.set_xlabel(self.xlabel)
-            self.ax.set_ylabel(self.ylabel)
+            self.ax.set_facecolor("#15181e")
+            self.ax.tick_params(colors="#8b949e")
+            for spine in self.ax.spines.values():
+                spine.set_color("#2b303d")
+            self.ax.set_xlabel(self.xlabel, color="#8b949e")
+            self.ax.set_ylabel(self.ylabel, color="#8b949e")
         try:
             self.fig.tight_layout()      # 每次渲染排一次（渲染已节流，开销可忽略）
         except Exception:
@@ -68,7 +107,7 @@ class _PlotTab(QWidget):
 
     def draw(self):
         from ..core.i18n import tr as _tr
-        self.ax.set_title(_tr(self.title))
+        self.ax.set_title(_tr(self.title), color="#e6edf3", pad=8, fontdict={"fontweight": 600})
         self.canvas.draw_idle()
 
 
@@ -92,6 +131,7 @@ class CanvasPanel(QTabWidget):
         self.tab_3d = _PlotTab(tr("3D地形"), tr("X (m)"), tr("Y (m)"))
         self.tab_3d.ax.remove()
         self.tab_3d.ax = self.tab_3d.fig.add_subplot(111, projection="3d")
+        self.tab_3d.ax.set_facecolor("#15181e")
 
         for i, t in enumerate([self.tab_terrain, self.tab_area, self.tab_slope_area,
                                self.tab_profile, self.tab_history, self.tab_3d]):
@@ -99,52 +139,123 @@ class CanvasPanel(QTabWidget):
 
         # ---- 地形页辅助条：取点剖面 + 字段查看器 + 查值显示 ----
         bar = QHBoxLayout()
+        bar.setContentsMargins(8, 4, 8, 4)
+        bar.setSpacing(10)
         self.btn_pick = QPushButton(tr("📏 取点剖面"))
         self.btn_pick.setCheckable(True)
         self.btn_pick.setToolTip(tr("勾选后在地形图上点两个点，即画出任意方向的地形剖面"))
+        self.btn_pick.setStyleSheet("""
+            QPushButton {
+                background: #212530;
+                color: #e6edf3;
+                border: 1px solid #373e4d;
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background: #2d3342;
+                border-color: #3b82f6;
+            }
+            QPushButton:checked {
+                background: #1e3a8a;
+                border-color: #3b82f6;
+                color: #60a5fa;
+                font-weight: 600;
+            }
+        """)
         self.btn_pick.toggled.connect(self._toggle_pick)
         bar.addWidget(self.btn_pick)
         self.pick_hint = QLabel("")
-        self.pick_hint.setStyleSheet("color:#3daee9;")
+        self.pick_hint.setStyleSheet("color:#60a5fa; font-weight: 500;")
         bar.addWidget(self.pick_hint)
         bar.addStretch()
-        bar.addWidget(QLabel(tr("查看字段:")))
+        lbl_field = QLabel(tr("查看字段:"))
+        lbl_field.setStyleSheet("color: #8b949e; font-weight: 500;")
+        bar.addWidget(lbl_field)
         self.field_combo = QComboBox()
-        self.field_combo.setMinimumWidth(180)
+        self.field_combo.setMinimumWidth(190)
         self.field_combo.addItem("topographic__elevation")
         self.field_combo.setToolTip(tr("切换地形页显示的字段（运行越多样组件，可选字段越多）"))
         self.field_combo.currentTextChanged.connect(self._on_view_field_changed)
         bar.addWidget(self.field_combo)
         wrap = QWidget()
+        wrap.setStyleSheet("background: #1e222b; border: 1px solid #2b303d; border-radius: 6px; margin: 2px;")
         wrap.setLayout(bar)
         self.tab_terrain.layout().insertWidget(1, wrap)
 
         # ---- 回放条：模拟结束后拖动滑块逐帧回放演化过程 ----
         rbar = QHBoxLayout()
+        rbar.setContentsMargins(8, 4, 8, 4)
+        rbar.setSpacing(10)
         self.btn_play = QPushButton(tr("▶ 回放"))
         self.btn_play.setCheckable(True)
         self.btn_play.setEnabled(False)
         self.btn_play.setToolTip(tr("按时间轴回放本次模拟的演化过程"))
+        self.btn_play.setStyleSheet("""
+            QPushButton {
+                background: #212530;
+                color: #e6edf3;
+                border: 1px solid #373e4d;
+                border-radius: 6px;
+                padding: 4px 14px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #283040;
+                border-color: #10b981;
+            }
+            QPushButton:checked {
+                background: #047857;
+                border-color: #10b981;
+                color: #ffffff;
+            }
+            QPushButton:disabled {
+                background: #1a1d24;
+                color: #525866;
+                border-color: #2b303d;
+            }
+        """)
         self.btn_play.toggled.connect(self._toggle_replay)
         rbar.addWidget(self.btn_play)
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setEnabled(False)
         self.slider.setToolTip(tr("拖动查看不同时刻的地形"))
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 6px;
+                background: #15171e;
+                border-radius: 3px;
+                border: 1px solid #2b303d;
+            }
+            QSlider::sub-page:horizontal {
+                background: #2563eb;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #60a5fa;
+                border: 2px solid #ffffff;
+                width: 14px;
+                margin-top: -5px;
+                margin-bottom: -5px;
+                border-radius: 7px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #93c5fd;
+            }
+        """)
         self.slider.valueChanged.connect(self._on_slider)
         rbar.addWidget(self.slider, stretch=1)
         self.frame_label = QLabel("")
-        self.frame_label.setStyleSheet("color:#9aa0a6;")
+        self.frame_label.setStyleSheet("color:#8b949e; font-size: 11px; font-weight: 500;")
         rbar.addWidget(self.frame_label)
         wrap_r = QWidget()
+        wrap_r.setStyleSheet("background: #1e222b; border: 1px solid #2b303d; border-radius: 6px; margin: 2px;")
         wrap_r.setLayout(rbar)
         self.tab_terrain.layout().insertWidget(2, wrap_r)
-        self._replay_timer = QTimer(self)
-        self._replay_timer.setInterval(180)
-        self._replay_timer.timeout.connect(self._replay_tick)
-        self._frames_provider = lambda: []
 
-        self.info_label = QLabel(tr("💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移（⌂◀▶ 在用过缩放后才亮起）"))
-        self.info_label.setStyleSheet("color:#9aa0a6;")
+        self.info_label = QLabel(tr("💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移"))
+        self.info_label.setStyleSheet("color:#64748b; font-size: 11px; padding: 2px 6px;")
         self.info_label.setWordWrap(True)
         wrap2 = QWidget()
         v = QVBoxLayout(wrap2)
@@ -230,16 +341,24 @@ class CanvasPanel(QTabWidget):
                                  cmap="viridis", colorbar_fig=self.tab_area.fig)
             else:
                 ax.text(0.5, 0.5, tr("运行含汇流组件后显示"), transform=ax.transAxes,
-                        ha="center", va="center", color="gray")
+                        ha="center", va="center", color="#8b949e")
             self.tab_area.draw()
         elif idx == 2:
             self.tab_slope_area.ax.clear()
+            self.tab_slope_area.ax.set_facecolor("#15181e")
+            self.tab_slope_area.ax.tick_params(colors="#8b949e")
+            for spine in self.tab_slope_area.ax.spines.values():
+                spine.set_color("#2b303d")
             plots.draw_slope_area(self.tab_slope_area.ax, ws)
             self.tab_slope_area.draw()
         elif idx == 3:
             self._render_profile_tab()
         elif idx == 4:
             self.tab_history.ax.clear()
+            self.tab_history.ax.set_facecolor("#15181e")
+            self.tab_history.ax.tick_params(colors="#8b949e")
+            for spine in self.tab_history.ax.spines.values():
+                spine.set_color("#2b303d")
             plots.draw_history(self.tab_history.ax, ws)
             self.tab_history.draw()
         elif idx == 5:
@@ -363,11 +482,15 @@ class CanvasPanel(QTabWidget):
     def _render_profile_tab(self):
         ax = self.tab_profile.ax
         ax.clear()
+        ax.set_facecolor("#15181e")
+        ax.tick_params(colors="#8b949e")
+        for spine in ax.spines.values():
+            spine.set_color("#2b303d")
         plots.draw_river_profile(ax, self._ws)
         for label, dists, elevs in self._custom_profiles:
-            ax.plot(dists, elevs, lw=2.0, color="#f5c542", label=label)
+            ax.plot(dists, elevs, lw=2.0, color="#f59e0b", label=label)
         if self._custom_profiles:
-            ax.legend()
+            ax.legend(facecolor="#212530", edgecolor="#373e4d", labelcolor="#e6edf3")
         self.tab_profile.draw()
 
     def _render_3d(self, z=None):
@@ -383,9 +506,9 @@ class CanvasPanel(QTabWidget):
             tab.draw()
             return
         plots.draw_3d(tab.ax, ws.grid, z)
-        tab.ax.set_xlabel("X (m)")
-        tab.ax.set_ylabel("Y (m)")
-        tab.ax.set_zlabel(tr("高程 (m)"))
+        tab.ax.set_xlabel("X (m)", color="#8b949e")
+        tab.ax.set_ylabel("Y (m)", color="#8b949e")
+        tab.ax.set_zlabel(tr("高程 (m)"), color="#8b949e")
         tab.draw()
 
     def refresh_3d_only(self):

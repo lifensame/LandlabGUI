@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
         self.console = ConsolePanel()
         self.canvas = CanvasPanel()
         self.canvas.set_frames_provider(lambda: self._frames)
-        self.workflow_panel = WorkflowPanel(self.ws, self.registry)
+        self.workflow_panel = WorkflowPanel(self.ws, self.registry, on_changed=self._update_status_pills)
         self.editor = CodeEditorPanel(self.ws, self.registry,
                                       on_snapshot=self._on_snapshot, log=self.log)
         self.editor.busy_check = self._busy
@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):
         self._build_layout()
         self._build_actions()
         self._restore_settings()
+        self._update_status_pills()
 
         self.ws.log_fn = self.log
         for m in self._boot_queue:
@@ -300,18 +301,133 @@ class MainWindow(QMainWindow):
             m_lang.addAction(a)
         self._sync_lang_actions()
 
-        # ---- 工具栏 ----
+        # ---- 顶部主工具栏 ----
         tb = self.addToolBar(tr("主工具栏"))
-        for act in (act_new, self.act_start, self.act_stop, act_export, act_sweep,
-                    act_report, act_reload):
-            tb.addAction(act)
+        tb.setObjectName("MainToolBar")
+        tb.setMovable(False)
+        tb.setStyleSheet("""
+            QToolBar {
+                background: #16181f;
+                border-bottom: 1px solid #2b303d;
+                padding: 4px 8px;
+                spacing: 6px;
+            }
+            QToolButton {
+                background: #212530;
+                color: #e6edf3;
+                border: 1px solid #2e3442;
+                border-radius: 6px;
+                padding: 5px 12px;
+                font-weight: 500;
+                font-size: 12px;
+            }
+            QToolButton:hover {
+                background: #2b3140;
+                border-color: #3b82f6;
+                color: #ffffff;
+            }
+            QToolButton:pressed {
+                background: #1a1e28;
+            }
+            QToolButton:disabled {
+                background: #1a1d24;
+                color: #4b5563;
+                border-color: #232730;
+            }
+        """)
+        tb.addAction(self.act_start)
+        tb.addAction(self.act_stop)
+        tb.addSeparator()
+        tb.addAction(act_new)
+        tb.addAction(act_dem)
+        tb.addAction(act_export)
+        tb.addSeparator()
+        tb.addAction(act_open)
+        tb.addAction(act_save)
+        tb.addSeparator()
+        tb.addAction(act_ai)
+        tb.addAction(act_sweep)
+        tb.addAction(act_report)
+        tb.addSeparator()
+        tb.addAction(act_reload)
 
+        # ---- 底部现代状态栏 ----
+        sb = self.statusBar()
+        sb.setStyleSheet("""
+            QStatusBar {
+                background: #13151a;
+                color: #8b949e;
+                border-top: 1px solid #2b303d;
+                font-size: 11px;
+                padding: 2px 8px;
+            }
+            QStatusBar::item {
+                border: none;
+            }
+        """)
         self.status_label = QLabel(" " + tr("就绪 ").strip() + " " + tr("｜ F5=运行  ■=停止  "))
-        self.statusBar().addWidget(self.status_label)
+        self.status_label.setStyleSheet("color: #8b949e; font-weight: 500;")
+        sb.addWidget(self.status_label, 1)
+
         self.progress = QProgressBar()
-        self.progress.setMaximumWidth(280)
+        self.progress.setMaximumWidth(240)
+        self.progress.setStyleSheet("""
+            QProgressBar {
+                background: #15171e;
+                border: 1px solid #2b303d;
+                border-radius: 4px;
+                height: 12px;
+                text-align: center;
+                color: #e6edf3;
+                font-size: 10px;
+            }
+            QProgressBar::chunk {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10b981);
+                border-radius: 3px;
+            }
+        """)
         self.progress.hide()
-        self.statusBar().addPermanentWidget(self.progress)
+        sb.addPermanentWidget(self.progress)
+
+        self.pill_grid = QLabel(tr("🌐 网格: 未初始化"))
+        self.pill_grid.setStyleSheet("""
+            QLabel {
+                background: #1e222b;
+                color: #60a5fa;
+                border: 1px solid #2b303d;
+                border-radius: 9px;
+                padding: 2px 8px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+        """)
+        self.pill_steps = QLabel(tr("⚙️ 步骤: 0 步"))
+        self.pill_steps.setStyleSheet("""
+            QLabel {
+                background: #1e222b;
+                color: #34d399;
+                border: 1px solid #2b303d;
+                border-radius: 9px;
+                padding: 2px 8px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+        """)
+        self.pill_frames = QLabel(tr("🎞️ 回放帧: 0"))
+        self.pill_frames.setStyleSheet("""
+            QLabel {
+                background: #1e222b;
+                color: #cbd5e1;
+                border: 1px solid #2b303d;
+                border-radius: 9px;
+                padding: 2px 8px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+        """)
+        sb.addPermanentWidget(self.pill_grid)
+        sb.addPermanentWidget(self.pill_steps)
+        sb.addPermanentWidget(self.pill_frames)
 
         # 快照节流：模拟高频快照信号合并到 ≥300ms 一次绘制，
         # 防止刷新淹没主线程（界面卡顿根源）
@@ -504,6 +620,19 @@ class MainWindow(QMainWindow):
                 tr("以下功能不存在（插件被删除/改名？）：\n{0}\n\n请删除或修正这些步骤后重试").format(
                     "\n".join(missing)))
             return
+
+        # 步骤间依赖预检（DAG 校验）
+        from ..core.engine import validate_workflow_dependencies
+        dep_issues = validate_workflow_dependencies(wf, self.registry.schemas)
+        if dep_issues:
+            lines = [f"• 步骤 {it['step_index']} ({it['component']}): 缺少输入字段 '{it['missing_field']}'\n"
+                     f"  建议前置添加: {it['suggestion']}" for it in dep_issues]
+            msg = tr("检测到工作流可能缺少前置依赖字段：\n\n{0}\n\n若直接运行，引擎将自动用全零填充缺失字段，这可能导致模拟结果失真。\n是否继续运行？").format("\n".join(lines))
+            btn = QMessageBox.warning(self, tr("依赖预检提示"), msg,
+                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if btn != QMessageBox.Yes:
+                return
+
         self.log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
         self._frames_clear()
         self._current_wf = wf
@@ -554,6 +683,7 @@ class MainWindow(QMainWindow):
         if running:
             self.progress.setValue(0)
         self.status_label.setText(" " + (tr(" 运行中... ") if running else tr("就绪 ").strip()) + " ")
+        self._update_status_pills()
 
     def _on_progress(self, i, n):
         self.progress.setMaximum(n)
@@ -581,7 +711,19 @@ class MainWindow(QMainWindow):
 
     def _collect_frame(self, z):
         shape = getattr(self.ws.grid, "shape", None)
-        z2d = z.reshape(shape) if shape and len(shape) == 2 else None
+        is_raster = shape and len(shape) == 2 and (shape[0] * shape[1] == z.size)
+        z2d = z.reshape(shape) if is_raster else None
+        if z2d is None and hasattr(self.ws.grid, "x_of_node") and hasattr(self.ws.grid, "y_of_node"):
+            try:
+                from scipy.interpolate import griddata
+                g = self.ws.grid
+                x, y = g.x_of_node, g.y_of_node
+                xi = np.linspace(x.min(), x.max(), 80)
+                yi = np.linspace(y.min(), y.max(), 80)
+                XI, YI = np.meshgrid(xi, yi)
+                z2d = griddata((x, y), z, (XI, YI), method="nearest")
+            except Exception:
+                z2d = None
         if z2d is None:
             return
         vmin, vmax = float(np.nanmin(z2d)), float(np.nanmax(z2d))
@@ -599,6 +741,7 @@ class MainWindow(QMainWindow):
             self._frame_bytes = sum(f[0].nbytes for f in frames)
         self.act_anim.setEnabled(len(self._frames) >= 2)
         self.canvas.update_replay_range(len(self._frames))
+        self._update_status_pills()
 
     def _frames_clear(self):
         self._frames.clear()
@@ -606,6 +749,7 @@ class MainWindow(QMainWindow):
         self._frame_bytes = 0
         self.act_anim.setEnabled(False)
         self.canvas.update_replay_range(0)
+        self._update_status_pills()
 
     def _on_done(self, ok: bool, msg: str):
         self._set_running(False)
@@ -619,6 +763,7 @@ class MainWindow(QMainWindow):
                 self.history_panel.add_snapshot(
                     wf.get("name", "未命名"), z, self.ws.grid_info, wf, self.ws.history)
         self.worker = None
+        self._update_status_pills()
 
     # ================================================== 独立导出
     def export_current(self):
@@ -701,23 +846,6 @@ class MainWindow(QMainWindow):
 
     # ================================================== 参数扫描
     def open_sweep(self):
-        dlg = AiAssistantDialog(self.settings, comp_names, plug_names, self)
-        if not dlg.exec():
-            return
-        wf = dlg.result_workflow()
-        if not wf:
-            return
-        self.workflow_panel.load_workflow(wf)
-        self.workflow_panel.rebuild_check.setChecked(True)
-        self.log(tr("AI 已生成工作流: {0} ({1} 个步骤)").format(
-            wf.get("name", tr("未命名")), len(wf.get("steps", []))))
-        self.log(tr("AI 可能给出不完美的参数，建议点开各步骤核对后再运行"))
-        QMessageBox.information(
-            self, tr("AI 参数助手"),
-            tr("工作流已载入。请核对各步骤参数（尤其数值量级），然后点 ▶ 运行。"))
-
-    # ================================================== 参数扫描
-    def open_sweep(self):
         if self._busy():
             QMessageBox.warning(self, tr("忙碌"), tr("有任务正在后台运行，请等待完成"))
             return
@@ -732,8 +860,10 @@ class MainWindow(QMainWindow):
     def start_sweep(self, cfg: dict):
         """在主窗口托管扫描线程（对话框关闭不影响运行与结果窗口生命周期）。"""
         from app.workers.sim_worker import SweepWorker
+        workers = max(1, min(os.cpu_count() or 4, 4))
         self.sweep_worker = SweepWorker(cfg["wf"], cfg["step_id"], cfg["param_name"],
-                                        cfg["values"], self.registry.plugins)
+                                        cfg["values"], self.registry.plugins,
+                                        workers=workers)
         self.sweep_worker.sig_log.connect(self.log)
         self.sweep_worker.sig_progress.connect(self._on_sweep_progress)
         self.sweep_worker.sig_done.connect(self._on_sweep_done)
@@ -822,6 +952,7 @@ class MainWindow(QMainWindow):
         self.workflow_panel.load_workflow(wf)
         self.log(tr("工作流已载入: {0}").format(path))
         self._add_recent(path)
+        self._update_status_pills()
 
     def _load_preset(self, item):
         wf = self.presets.get(item.text())
@@ -830,6 +961,7 @@ class MainWindow(QMainWindow):
         self.workflow_panel.load_workflow(wf)
         self.log(tr("已载入预设: {0} —— {1}").format(item.text(), wf.get("doc", "")))
         self.log(tr("点 ▶ 运行 即可（预设会自动建网格）"))
+        self._update_status_pills()
 
     # ================================================== 插件/帮助
     def reload_plugins(self):
@@ -880,3 +1012,21 @@ class MainWindow(QMainWindow):
 
     def _set_status(self, text: str):
         self.status_label.setText(f" {text} ")
+        self._update_status_pills()
+
+    def _update_status_pills(self):
+        if hasattr(self, "pill_grid") and hasattr(self, "ws"):
+            if self.ws.has_grid:
+                shape = getattr(self.ws.grid, "shape", None)
+                n = self.ws.grid.number_of_nodes
+                if shape and len(shape) == 2:
+                    self.pill_grid.setText(f"🌐 网格: {shape[0]}×{shape[1]} ({n:,} 节点)")
+                else:
+                    self.pill_grid.setText(f"🌐 网格: {self.ws.grid_info.get('type', '非规则')} ({n:,} 节点)")
+            else:
+                self.pill_grid.setText(tr("🌐 网格: 未初始化"))
+        if hasattr(self, "pill_steps") and hasattr(self, "workflow_panel"):
+            steps = len(getattr(self.workflow_panel, "steps", []))
+            self.pill_steps.setText(tr("⚙️ 步骤: {0} 步").format(steps))
+        if hasattr(self, "pill_frames") and hasattr(self, "_frames"):
+            self.pill_frames.setText(tr("🎞️ 回放帧: {0}").format(len(self._frames)))

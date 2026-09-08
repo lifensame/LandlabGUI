@@ -288,7 +288,9 @@ class Engine:
         spec = self.plugins.get(pname)
         if spec is None:
             raise ValueError(f"找不到插件功能: {pname}（是否忘记重载插件？）")
-        spec.fn(self.ws, step.get("params", {}) or {})    # -------------------------------------------------- 导出
+        spec.fn(self.ws, step.get("params", {}) or {})
+
+    # -------------------------------------------------- 导出
     def _export(self, cfg: dict):
         from .exporter import export_all
         from .plugin_loader import app_root
@@ -313,3 +315,69 @@ def sanitize_workflow_params(params: dict, schema_params: list = None) -> dict:
         else:
             out[k] = v
     return out
+
+
+def validate_workflow_dependencies(wf: dict, schemas: dict = None) -> list[dict]:
+    """检查工作流步骤之间的字段依赖关系（DAG 拓扑依赖预检）。
+
+    返回依赖缺失列表:
+        [{"step_index": int, "step_id": str, "component": str,
+          "missing_field": str, "field_doc": str, "suggestion": str}]
+    """
+    if schemas is None:
+        from .introspection import scan_all_components
+        schemas = scan_all_components()
+
+    # 倒查：哪个组件可以产生某个字段 -> {field_name: [comp_name, ...]}
+    producers = {}
+    for comp_name, s in schemas.items():
+        for out_f in s.get("output_fields", []):
+            fname = out_f.get("name")
+            if fname:
+                producers.setdefault(fname, []).append(comp_name)
+
+    preferred_producers = {
+        "drainage_area": "PriorityFloodFlowRouter / FlowAccumulator",
+        "flow__receiver_node": "PriorityFloodFlowRouter / FlowAccumulator",
+        "flow__upstream_node_order": "PriorityFloodFlowRouter / FlowAccumulator",
+        "surface_water__discharge": "PriorityFloodFlowRouter / FlowAccumulator",
+        "topographic__steepest_slope": "PriorityFloodFlowRouter / FlowDirectorSteepest",
+        "soil__depth": "ExponentialWeatherer",
+    }
+
+    available = {"topographic__elevation"}
+    issues = []
+
+    for idx, step in enumerate(wf.get("steps", [])):
+        kind = step.get("kind", "component")
+        if kind != "component":
+            continue
+        cname = step.get("component")
+        schema = schemas.get(cname)
+        if not schema:
+            continue
+
+        for inf in schema.get("input_fields", []):
+            if "in" in inf.get("intent", "") and not inf.get("optional", False):
+                fname = inf.get("name")
+                if fname and fname not in available:
+                    sugg = preferred_producers.get(fname)
+                    if not sugg:
+                        cand = producers.get(fname, [])
+                        sugg = ", ".join(cand[:2]) if cand else "相应前置计算组件"
+                    issues.append({
+                        "step_index": idx + 1,
+                        "step_id": step.get("id", cname),
+                        "component": cname,
+                        "missing_field": fname,
+                        "field_doc": inf.get("doc", ""),
+                        "suggestion": sugg,
+                    })
+
+        # 该组件成功执行后产生 output_fields
+        for outf in schema.get("output_fields", []):
+            if "out" in outf.get("intent", ""):
+                available.add(outf.get("name"))
+
+    return issues
+

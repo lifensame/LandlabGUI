@@ -74,8 +74,26 @@ class CodeEditorPanel(QWidget):
         self.busy_check = lambda: False     # 主窗口注入：模拟运行中禁止片段执行
 
         lay = QVBoxLayout(self)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(6)
+
         btns = QHBoxLayout()
+        btns.setContentsMargins(2, 2, 2, 2)
+        btns.setSpacing(8)
         self.btn_run = QPushButton(tr("▶ 运行代码 (Ctrl+R)"))
+        self.btn_run.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10b981);
+                color: #ffffff;
+                font-weight: 600;
+                padding: 6px 16px;
+                border: 1px solid #059669;
+                border-radius: 6px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #047857, stop:1 #059669);
+            }
+        """)
         self.btn_run.clicked.connect(self.run_code)
         btn_save = QPushButton(tr("另存为插件..."))
         btn_save.clicked.connect(self.save_as_plugin)
@@ -92,6 +110,16 @@ class CodeEditorPanel(QWidget):
         self.editor = QPlainTextEdit()
         self.editor.setFont(QFont("Consolas", 10))
         self.editor.setPlainText(_DEFAULT_CODE)
+        self.editor.setStyleSheet("""
+            QPlainTextEdit {
+                background: #15171e;
+                color: #e6edf3;
+                border: 1px solid #2b303d;
+                border-radius: 6px;
+                padding: 8px;
+                selection-background-color: #1d3b5e;
+            }
+        """)
         self._hl = PythonHighlighter(self.editor.document())
         lay.addWidget(self.editor)
 

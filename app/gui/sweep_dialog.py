@@ -161,8 +161,12 @@ class SweepResultWindow(QWidget):
         tabs.addTab(table, tr("统计表"))
 
         # ---- 坡度-面积对比 ----
-        fig = Figure(figsize=(8, 5))
+        fig = Figure(figsize=(8, 5), facecolor="#1a1d24")
         ax = fig.add_subplot(111)
+        ax.set_facecolor("#15181e")
+        ax.tick_params(colors="#8b949e")
+        for spine in ax.spines.values():
+            spine.set_color("#2b303d")
         cmap = matplotlib.colormaps["viridis"]
         n = len(results)
         plotted = 0
@@ -174,42 +178,49 @@ class SweepResultWindow(QWidget):
                           label=f"{param_name}={res['value']:.3g}")
                 plotted += 1
         if plotted:
-            ax.set_xlabel(tr("汇水面积 A (m²)"))
-            ax.set_ylabel(tr("坡度 S"))
-            ax.legend(fontsize=8)
-            ax.set_title(tr("坡度-面积曲线对比（凹度差异一眼可见）"))
+            ax.set_xlabel(tr("汇水面积 A (m²)"), color="#8b949e")
+            ax.set_ylabel(tr("坡度 S"), color="#8b949e")
+            ax.grid(True, which="both", ls=":", color="#2b303d", alpha=0.6)
+            ax.legend(fontsize=8, facecolor="#212530", edgecolor="#373e4d", labelcolor="#e6edf3")
+            ax.set_title(tr("坡度-面积曲线对比（凹度差异一眼可见）"), color="#e6edf3")
         else:
             ax.text(0.5, 0.5, tr("无坡度-面积数据（需运行含汇流步骤）"),
-                    transform=ax.transAxes, ha="center", va="center", color="gray")
+                    transform=ax.transAxes, ha="center", va="center", color="#8b949e")
         fig.tight_layout()
         tabs.addTab(_FigTab(fig), tr("坡度-面积对比"))
 
         # ---- 统计曲线 ----
-        fig2 = Figure(figsize=(8, 5))
+        fig2 = Figure(figsize=(8, 5), facecolor="#1a1d24")
         ax2 = fig2.add_subplot(111)
+        ax2.set_facecolor("#15181e")
+        ax2.tick_params(colors="#8b949e")
+        for spine in ax2.spines.values():
+            spine.set_color("#2b303d")
         vals = [r["value"] for r in results]
         xs = range(len(vals))
-        ax2.plot(xs, [r["relief"] for r in results], "-o", label=tr("起伏 (m)"), color="#e05c5c")
-        ax2.plot(xs, [r["mean"] for r in results], "-s", label="平均高程", color="#3daee9")
+        ax2.plot(xs, [r["relief"] for r in results], "-o", label=tr("起伏 (m)"), color="#f43f5e", lw=1.8)
+        ax2.plot(xs, [r["mean"] for r in results], "-s", label=tr("平均高程"), color="#38bdf8", lw=1.8)
         ax2.set_xticks(list(xs))
         ax2.set_xticklabels([f"{v:.3g}" for v in vals], rotation=30)
-        ax2.set_xlabel(param_name)
-        ax2.set_ylabel("高程 (m)")
-        ax2.legend()
-        ax2.set_title(tr("形态指标随参数变化"))
+        ax2.set_xlabel(param_name, color="#8b949e")
+        ax2.set_ylabel(tr("高程 (m)"), color="#8b949e")
+        ax2.grid(True, ls=":", color="#2b303d", alpha=0.6)
+        ax2.legend(facecolor="#212530", edgecolor="#373e4d", labelcolor="#e6edf3")
+        ax2.set_title(tr("形态指标随参数变化"), color="#e6edf3")
         fig2.tight_layout()
         tabs.addTab(_FigTab(fig2), tr("统计曲线"))
 
         # ---- 地形缩略图 ----
-        fig3 = Figure(figsize=(10, 3 + n))
+        fig3 = Figure(figsize=(10, 3 + n), facecolor="#1a1d24")
         cols = min(3, n)
         rows = (n + cols - 1) // cols
         vmax = max(r["max"] for r in results)
         vmin = min(r["min"] for r in results)
         for i, res in enumerate(results):
             ax = fig3.add_subplot(rows, cols, i + 1)
+            ax.set_facecolor("#15181e")
             ax.imshow(res["z2d"], origin="lower", cmap="terrain", vmin=vmin, vmax=vmax)
-            ax.set_title(f"{param_name}={res['value']:.3g}", fontsize=9)
+            ax.set_title(f"{param_name}={res['value']:.3g}", fontsize=9, color="#e6edf3")
             ax.set_xticks([])
             ax.set_yticks([])
         fig3.tight_layout()
@@ -255,5 +266,7 @@ class _FigTab(QWidget):
         super().__init__(parent)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.addWidget(FigureCanvasQTAgg(fig))
+        canvas = FigureCanvasQTAgg(fig)
+        canvas.setStyleSheet("background: #1a1d24;")
+        lay.addWidget(canvas)
         self.fig = fig

@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout
 
 from ..core import i18n
 from ..core.i18n import tr
-from ..core.i18n import tr
 
 _TYPE_LABEL = {
     "float": "浮点", "int": "整数", "str": "文本", "bool": "开关", "none": "可留空",

@@ -141,25 +141,28 @@ class CompareDialog(QDialog):
         self.resize(1000, 560)
         lay = QVBoxLayout(self)
 
-        fig = Figure(figsize=(12, 4.4))
+        fig = Figure(figsize=(12, 4.4), facecolor="#1a1d24")
         canvas = FigureCanvasQTAgg(fig)
+        canvas.setStyleSheet("background: #1a1d24;")
         lay.addWidget(canvas, stretch=1)
 
         za, zb = np.asarray(a.z, float), np.asarray(b.z, float)
         for ax, snap, z, tag in ((fig.add_subplot(1, 3, 1), a, za, "A"),
                                  (fig.add_subplot(1, 3, 2), b, zb, "B")):
+            ax.set_facecolor("#15181e")
             grid = _GridStub(snap)
             plots.draw_field(ax, grid, z, colorbar_fig=fig)
-            ax.set_title(f"{tag}: {snap.name}")
+            ax.set_title(f"{tag}: {snap.name}", color="#e6edf3", fontweight=600)
         # 第三幅：B−A 侵蚀/沉积差值图（蓝=侵蚀下切, 红=堆积）
         if za.shape == zb.shape:
             diff = zb - za
             dmax = float(np.nanmax(np.abs(diff))) or 1.0
             ax = fig.add_subplot(1, 3, 3)
+            ax.set_facecolor("#15181e")
             grid = _GridStub(b)
             plots.draw_field(ax, grid, diff, cmap="RdBu_r",
                              colorbar_fig=fig, vmin=-dmax, vmax=dmax)
-            ax.set_title(tr("B−A 差值: 蓝=侵蚀, 红=堆积"))
+            ax.set_title(tr("B−A 差值: 蓝=侵蚀, 红=堆积"), color="#e6edf3", fontweight=600)
 
         za, zb = za.astype(float), zb.astype(float)
         if za.size == zb.size:
@@ -170,6 +173,7 @@ class CompareDialog(QDialog):
         else:
             txt = tr("两次运行网格不同，无法逐点求差")
         lbl = QLabel(txt)
+        lbl.setStyleSheet("color: #8b949e; font-size: 12px; margin: 6px 0;")
         lbl.setWordWrap(True)
         lay.addWidget(lbl)
         bb = QDialogButtonBox(QDialogButtonBox.Close)

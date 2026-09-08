@@ -134,12 +134,13 @@ class SweepWorker(QThread):
     sig_done = Signal(bool, str)
     sig_result = Signal(object)       # list[dict] 每个参数值的结果
 
-    def __init__(self, base_wf, step_id, param_name, values, plugins, parent=None):
+    def __init__(self, base_wf, step_id, param_name, values, plugins, workers=1, parent=None):
         super().__init__(parent)
         from ..core.sweep import run_sweep
         self._runner = run_sweep
         self.base_wf, self.step_id = base_wf, step_id
         self.param_name, self.values, self.plugins = param_name, values, plugins
+        self.workers = workers
         self.flag = StopFlag()
 
     def stop(self):
@@ -153,7 +154,8 @@ class SweepWorker(QThread):
                 self.base_wf, self.step_id, self.param_name, self.values,
                 self.plugins, log=buf.print,
                 progress=lambda i, n: self.sig_progress.emit(i, n),
-                stop=lambda: self.flag.stop)
+                stop=lambda: self.flag.stop,
+                workers=self.workers)
             self.sig_result.emit(results)
             self.sig_done.emit(True, f"扫描完成，共 {len(results)} 组")
         except Exception as e:

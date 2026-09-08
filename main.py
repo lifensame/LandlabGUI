@@ -24,7 +24,7 @@ def main():
 
     app = QApplication(sys.argv)
     app.setApplicationName("Landlab 地貌模拟工作台")
-    app.setFont(QFont("Microsoft YaHei", 9))
+    app.setFont(QFont("Microsoft YaHei UI", 9))
 
     from app.gui.style import apply
     apply(app)                       # 深色主题（QSS + matplotlib 配色）

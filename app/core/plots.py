@@ -43,11 +43,16 @@ def draw_field(ax, grid, values, cmap="terrain", colorbar_fig=None,
                     ha="center", va="center", color="gray")
             return None
     if colorbar_fig is not None and m is not None:
-        colorbar_fig.colorbar(m, ax=ax, shrink=0.8)
+        cbar = colorbar_fig.colorbar(m, ax=ax, shrink=0.8)
+        try:
+            cbar.ax.yaxis.set_tick_params(color="#8b949e", labelcolor="#8b949e")
+            cbar.outline.set_edgecolor("#2b303d")
+        except Exception:
+            pass
     return m
 
 
-def draw_slope_area(ax, ws, color="#3daee9"):
+def draw_slope_area(ax, ws, color="#38bdf8"):
     """坡度-面积散点（对数坐标）。返回 True 表示有数据。"""
     ok = False
     if ws.has_grid and "drainage_area" in ws.at_node \
@@ -57,15 +62,19 @@ def draw_slope_area(ax, ws, color="#3daee9"):
             a = ws.at_node["drainage_area"]
             m = (a > 1e3) & np.isfinite(slope) & (slope > 0)
             if m.sum() > 10:
-                ax.loglog(a[m], slope[m], ".", ms=1.5, alpha=0.35, color=color)
-                ax.set_xlabel(tr("汇水面积 A (m²)"))
-                ax.set_ylabel(tr("坡度 S"))
+                ax.loglog(a[m], slope[m], ".", ms=2.0, alpha=0.45, color=color)
+                ax.set_xlabel(tr("汇水面积 A (m²)"), color="#8b949e")
+                ax.set_ylabel(tr("坡度 S"), color="#8b949e")
+                ax.tick_params(colors="#8b949e")
+                for spine in ax.spines.values():
+                    spine.set_color("#2b303d")
+                ax.grid(True, which="both", ls=":", color="#2b303d", alpha=0.6)
                 ok = True
         except Exception:
             ok = False
     if not ok:
         ax.text(0.5, 0.5, tr("运行含汇流的组件后显示\n(阈值 A>1e3 m²)"),
-                transform=ax.transAxes, ha="center", va="center", color="gray")
+                transform=ax.transAxes, ha="center", va="center", color="#8b949e")
     return ok
 
 
@@ -94,7 +103,7 @@ def slope_area_binned(ws, n_bins=24, a_min=1e3):
         return None
 
 
-def draw_river_profile(ax, ws, color="#e05c5c"):
+def draw_river_profile(ax, ws, color="#f43f5e"):
     """最长河道纵剖面（沿 flow__receiver_node 链）。返回 True 表示有数据。"""
     ok = False
     if ws.has_grid and "flow__receiver_node" in ws.at_node \
@@ -120,16 +129,20 @@ def draw_river_profile(ax, ws, color="#e05c5c"):
                 if len(path) > 5:
                     prof = z[path]
                     s = np.linspace(0, dist, len(path))
-                    ax.plot(s, prof, lw=1.6, color=color)
-                    ax.fill_between(s, prof.min() - 1, prof, alpha=0.12, color=color)
-                    ax.set_xlabel(tr("沿程距离 (m)"))
-                    ax.set_ylabel(tr("高程 (m)"))
+                    ax.plot(s, prof, lw=1.8, color=color)
+                    ax.fill_between(s, prof.min() - 1, prof, alpha=0.15, color=color)
+                    ax.set_xlabel(tr("沿程距离 (m)"), color="#8b949e")
+                    ax.set_ylabel(tr("高程 (m)"), color="#8b949e")
+                    ax.tick_params(colors="#8b949e")
+                    for spine in ax.spines.values():
+                        spine.set_color("#2b303d")
+                    ax.grid(True, ls=":", color="#2b303d", alpha=0.6)
                     ok = True
         except Exception:
             ok = False
     if not ok:
         ax.text(0.5, 0.5, "运行含汇流的组件后显示\n(最长河道纵剖面)",
-                transform=ax.transAxes, ha="center", va="center", color="gray")
+                transform=ax.transAxes, ha="center", va="center", color="#8b949e")
     return ok
 
 
@@ -154,14 +167,18 @@ def draw_history(ax, ws):
     """平均/最大高程随步数演化。"""
     if ws.history:
         steps = [h[0] for h in ws.history]
-        ax.plot(steps, [h[1] for h in ws.history], lw=1.6, color="#3daee9", label=tr("平均高程"))
-        ax.plot(steps, [h[2] for h in ws.history], lw=1.2, ls="--", color="#e05c5c", label=tr("最大高程"))
-        ax.set_xlabel(tr("步数"))
-        ax.set_ylabel(tr("高程 (m)"))
-        ax.legend()
+        ax.plot(steps, [h[1] for h in ws.history], lw=1.8, color="#38bdf8", label=tr("平均高程"))
+        ax.plot(steps, [h[2] for h in ws.history], lw=1.4, ls="--", color="#f43f5e", label=tr("最大高程"))
+        ax.set_xlabel(tr("步数"), color="#8b949e")
+        ax.set_ylabel(tr("高程 (m)"), color="#8b949e")
+        ax.tick_params(colors="#8b949e")
+        for spine in ax.spines.values():
+            spine.set_color("#2b303d")
+        ax.grid(True, ls=":", color="#2b303d", alpha=0.6)
+        ax.legend(facecolor="#212530", edgecolor="#373e4d", labelcolor="#e6edf3")
     else:
         ax.text(0.5, 0.5, tr("运行模拟后显示"), transform=ax.transAxes,
-                ha="center", va="center", color="gray")
+                ha="center", va="center", color="#8b949e")
 
 
 def draw_3d(ax, grid, z, downsample=180):
@@ -179,12 +196,14 @@ def draw_3d(ax, grid, z, downsample=180):
         surf = ax.plot_surface(X, Y, zz, cmap="terrain", rstride=1, cstride=1,
                                linewidth=0, antialiased=True)
         ax.set_box_aspect((1, ys.max() / max(xs.max(), 1), 0.35))
+        ax.tick_params(colors="#8b949e")
         return surf
     try:
         x, y = grid.x_of_node, grid.y_of_node
         tri = ax.plot_trisurf(x, y, z, cmap="terrain", linewidth=0, antialiased=True)
+        ax.tick_params(colors="#8b949e")
         return tri
     except Exception:
         ax.text2D(0.5, 0.5, tr("该网格类型暂不支持3D显示"), transform=ax.transAxes,
-                  ha="center", va="center", color="gray")
+                  ha="center", va="center", color="#8b949e")
         return None
