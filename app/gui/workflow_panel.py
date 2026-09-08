@@ -82,75 +82,75 @@ class WorkflowPanel(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(10)
 
-        # ---- 运行控制（大按钮常驻顶部，不用去工具栏找） ----
+        # ---- 运行控制（精炼专业控制栏） ----
         run_row = QHBoxLayout()
         run_row.setSpacing(10)
-        self.btn_run_big = QPushButton(tr("▶ 运行工作流 (F5)"))
-        self.btn_run_big.setMinimumHeight(44)
+        self.btn_run_big = QPushButton(tr("开始运行工作流 (F5)"))
+        self.btn_run_big.setMinimumHeight(38)
         self._style_run_idle = """
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10b981);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #10b981, stop:1 #059669);
                 color: #ffffff;
-                border: 1px solid #059669;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 14px;
-                padding: 8px 16px;
+                border: 1px solid #34d399;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 13px;
+                padding: 6px 18px;
             }
             QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #047857, stop:1 #059669);
-                border-color: #34d399;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #059669, stop:1 #047857);
+                border-color: #6ee7b7;
             }
             QPushButton:pressed {
-                background: #064e3b;
+                background: #065f46;
             }
             QPushButton:disabled {
-                background: #1f242d;
-                color: #555d6e;
-                border-color: #2b303d;
+                background: #181d26;
+                color: #4b5563;
+                border-color: #242c38;
             }
         """
         self._style_stop_idle = """
             QPushButton {
-                background: #27191d;
+                background: #1f1719;
                 color: #f87171;
-                border: 1px solid #5c1d24;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 13px;
-                padding: 8px 16px;
+                border: 1px solid #4a1d24;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 12px;
+                padding: 6px 14px;
             }
             QPushButton:hover {
-                background: #3f1d24;
+                background: #33181e;
                 border-color: #f87171;
                 color: #ffffff;
             }
             QPushButton:disabled {
-                background: #1f242d;
-                color: #555d6e;
-                border-color: #2b303d;
+                background: #181d26;
+                color: #4b5563;
+                border-color: #242c38;
             }
         """
         self._style_stop_active = """
             QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #dc2626, stop:1 #ef4444);
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ef4444, stop:1 #dc2626);
                 color: #ffffff;
-                border: 1px solid #b91c1c;
-                border-radius: 8px;
-                font-weight: 700;
-                font-size: 13px;
-                padding: 8px 16px;
+                border: 1px solid #f87171;
+                border-radius: 6px;
+                font-weight: 600;
+                font-size: 12px;
+                padding: 6px 14px;
             }
             QPushButton:hover {
-                background: #b91c1c;
+                background: #dc2626;
             }
             QPushButton:pressed {
-                background: #991b1b;
+                background: #b91c1c;
             }
         """
         self.btn_run_big.setStyleSheet(self._style_run_idle)
-        self.btn_stop_big = QPushButton(tr("■ 停止"))
-        self.btn_stop_big.setMinimumHeight(44)
+        self.btn_stop_big = QPushButton(tr("停止"))
+        self.btn_stop_big.setMinimumHeight(38)
         self.btn_stop_big.setStyleSheet(self._style_stop_idle)
         self.btn_stop_big.setEnabled(False)
         run_row.addWidget(self.btn_run_big, stretch=3)
@@ -229,22 +229,22 @@ class WorkflowPanel(QWidget):
         btns = QHBoxLayout()
         btns.setSpacing(8)
 
-        b_edit = QPushButton("✏️ " + tr("编辑参数"))
-        b_edit.setStyleSheet("font-weight: 600; color: #60a5fa; border-color: #1e3a8a;")
+        b_edit = QPushButton(tr("编辑参数"))
+        b_edit.setStyleSheet("font-weight: 600; color: #58a6ff; border-color: #1e3a8a;")
         b_edit.clicked.connect(self._edit_step)
 
-        b_up = QPushButton("⬆ " + tr("上移"))
+        b_up = QPushButton(tr("上移"))
         b_up.clicked.connect(lambda: self._move(-1))
 
-        b_down = QPushButton("⬇ " + tr("下移"))
+        b_down = QPushButton(tr("下移"))
         b_down.clicked.connect(lambda: self._move(1))
 
-        b_del = QPushButton("🗑️ " + tr("删除"))
-        b_del.setStyleSheet("color: #f87171; border-color: #5c1d24;")
+        b_del = QPushButton(tr("删除"))
+        b_del.setStyleSheet("color: #f87171; border-color: #4a1d24;")
         b_del.clicked.connect(self._delete_step)
 
-        b_clear = QPushButton("🧹 " + tr("清空"))
-        b_clear.setStyleSheet("color: #94a3b8; border-color: #334155;")
+        b_clear = QPushButton(tr("清空全部"))
+        b_clear.setStyleSheet("color: #94a3b8; border-color: #2e3646;")
         b_clear.clicked.connect(self._clear_steps)
 
         btns.addWidget(b_edit)
@@ -255,7 +255,7 @@ class WorkflowPanel(QWidget):
         btns.addWidget(b_clear)
         vs.addLayout(btns)
 
-        hint = QLabel(tr("💡 双击步骤可编辑参数；在左侧组件库双击任意组件/插件即可添加步骤"))
+        hint = QLabel(tr("提示：双击步骤可编辑参数；在左侧双击组件或插件即可添加到工作流"))
         hint.setStyleSheet("color: #64748b; font-size: 11px;")
         hint.setWordWrap(True)
         vs.addWidget(hint)
@@ -350,12 +350,11 @@ class WorkflowPanel(QWidget):
         self.step_list.clear()
         for i, s in enumerate(self.steps):
             name = s.get("component") or s.get("plugin") or "?"
-            prefix = "📦" if s["kind"] == "component" else "🔌"
             tag = tr("组件") if s["kind"] == "component" else tr("插件")
             display = i18n.display_name(name) if s["kind"] == "component" else name
             timing = _when_disp(s.get('when', 'every_step'))
             item = QListWidgetItem(
-                f"{i + 1:02d}.  {prefix} [{tag}] {display}   •   {timing}")
+                f"{i + 1:02d}.  [{tag}] {display}   •   {timing}")
             item.setData(Qt.UserRole, name)
             item.setToolTip(f"ID: {s.get('id', '')} | {timing}")
             self.step_list.addItem(item)

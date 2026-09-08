@@ -104,7 +104,7 @@ class AiAssistantDialog(QDialog):
 
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.btn_generate = bb.button(QDialogButtonBox.Ok)
-        self.btn_generate.setText(tr("✨ 生成工作流"))
+        self.btn_generate.setText(tr("生成工作流"))
         self.btn_generate.setDefault(True)
         bb.accepted.connect(self._on_ok)          # 唯一入口：校验+启动生成
         bb.rejected.connect(self.reject)
@@ -173,7 +173,7 @@ class AiAssistantDialog(QDialog):
 
     def _on_done(self, ok, msg):
         self.btn_generate.setEnabled(True)
-        self.btn_generate.setText(tr("✨ 生成工作流"))
+        self.btn_generate.setText(tr("生成工作流"))
         raw = getattr(self, "_raw_text", "")
         if raw:
             self.raw_view.setPlainText(raw[:3000])

@@ -83,7 +83,7 @@ class MainWindow(QMainWindow):
         self._boot_queue.clear()
         self.log(tr("Landlab 地貌模拟工作台已启动（深色主题）"))
         self.log(tr("组件库: {0} 个 landlab 组件, {1} 个自定义插件").format(len(self.registry.schemas), len(self.registry.plugins)))
-        self.log(tr("快速上手: 双击左下【快速测试】预设 → 点 ▶ 运行；不熟悉可看 菜单[帮助→新手引导]"))
+        self.log(tr("快速上手: 双击左下【快速测试】预设 → 按 F5 或点【开始运行工作流】；不熟悉可看 菜单[帮助→新手引导]"))
 
         if not self.settings.value("wizard_seen", False, bool):
             self.settings.setValue("wizard_seen", True)
@@ -110,7 +110,7 @@ class MainWindow(QMainWindow):
         v1 = QVBoxLayout(w1)
         v1.setContentsMargins(4, 4, 4, 4)
         self.search = QLineEdit()
-        self.search.setPlaceholderText(tr("🔍 搜索组件 / 插件"))
+        self.search.setPlaceholderText(tr("搜索组件、插件或算法..."))
         self.search.textChanged.connect(self._filter_tree)
         v1.addWidget(self.search)
         self.tree = QTreeWidget()
@@ -155,8 +155,8 @@ class MainWindow(QMainWindow):
                 continue
             cat_item = QTreeWidgetItem([f"{tr_cat(cat)} ({len(entries)})"])
             for e in entries:
-                it = QTreeWidgetItem([("🔌 " if e.kind == "plugin" else "")
-                                      + i18n.display_name(e.name)])
+                prefix = f"[{tr('插件')}] " if e.kind == "plugin" else ""
+                it = QTreeWidgetItem([prefix + i18n.display_name(e.name)])
                 it.setData(0, Qt.UserRole, e.name)
                 tip = i18n.doc(e.name, e.doc or "")
                 if i18n.is_zh():
@@ -211,7 +211,7 @@ class MainWindow(QMainWindow):
         act_new = QAction(tr("新建网格 / 导入DEM..."), self)
         act_new.triggered.connect(self.new_grid)
         m_grid.addAction(act_new)
-        act_dem = QAction(tr("🌐 从在线地图下载真实DEM..."), self)
+        act_dem = QAction(tr("从在线地图下载真实DEM..."), self)
         act_dem.setToolTip(tr("按地名或经纬度范围下载全球真实地形（SRTM/Copernicus，免密钥）"))
         act_dem.triggered.connect(self.download_dem_dialog)
         m_grid.addAction(act_dem)
@@ -235,10 +235,10 @@ class MainWindow(QMainWindow):
 
         # ---- 运行菜单 ----
         m_run = self.menuBar().addMenu(tr("运行(&R)"))
-        self.act_start = QAction(tr("▶ 运行工作流"), self)
+        self.act_start = QAction(tr("运行工作流 (F5)"), self)
         self.act_start.setShortcut(QKeySequence("F5"))
         self.act_start.triggered.connect(self.run_workflow)
-        self.act_stop = QAction(tr("■ 停止"), self)
+        self.act_stop = QAction(tr("停止模拟"), self)
         self.act_stop.setEnabled(False)
         self.act_stop.triggered.connect(self.stop_workflow)
         m_run.addAction(self.act_start)
@@ -246,7 +246,7 @@ class MainWindow(QMainWindow):
 
         # ---- 工具菜单 ----
         m_tools = self.menuBar().addMenu(tr("工具(&T)"))
-        act_ai = QAction(tr("🤖 AI 参数助手..."), self)
+        act_ai = QAction(tr("AI 参数助手..."), self)
         act_ai.setToolTip(tr("自然语言描述场景，AI 自动配置工作流"))
         act_ai.triggered.connect(self.open_ai_assistant)
         m_tools.addAction(act_ai)
@@ -290,7 +290,7 @@ class MainWindow(QMainWindow):
         m_help.addAction(act_about)
 
         # ---- 语言切换（组件名/说明 中文 <-> English）----
-        m_lang = m_help.addMenu(tr("🌐 组件显示语言 / Language"))
+        m_lang = m_help.addMenu(tr("组件显示语言 / Language"))
         from ..core import i18n
         self.act_lang_zh = QAction(tr("中文（组件中文名+中文说明）"), self, checkable=True)
         self.act_lang_en = QAction("English (original names & docs)", self, checkable=True)
@@ -301,72 +301,13 @@ class MainWindow(QMainWindow):
             m_lang.addAction(a)
         self._sync_lang_actions()
 
-        # ---- 顶部主工具栏 ----
-        # 紧凑文字标签（不污染菜单里的详细全称）
-        act_new.setIconText(tr("➕ 新建网格"))
-        act_dem.setIconText(tr("🌐 在线DEM"))
-        act_export.setIconText(tr("📤 导出地形"))
-        act_open.setIconText(tr("📂 打开"))
-        act_save.setIconText(tr("💾 保存"))
-        act_ai.setIconText(tr("🤖 AI助手"))
-        act_sweep.setIconText(tr("📊 参数扫描"))
-        act_report.setIconText(tr("📑 实验报告"))
-        act_reload.setIconText(tr("🔄 重载插件"))
-
-        tb = self.addToolBar(tr("主工具栏"))
-        tb.setObjectName("MainToolBar")
-        tb.setMovable(False)
-        tb.setFloatable(False)
-        tb.setStyleSheet("""
-            QToolBar {
-                background: #16181f;
-                border-bottom: 1px solid #2b303d;
-                padding: 4px 8px;
-                spacing: 6px;
-            }
-            QToolButton {
-                background: #212530;
-                color: #e6edf3;
-                border: 1px solid #2e3442;
-                border-radius: 6px;
-                padding: 4px 10px;
-                font-weight: 500;
-                font-size: 12px;
-            }
-            QToolButton:hover {
-                background: #2b3140;
-                border-color: #3b82f6;
-                color: #ffffff;
-            }
-            QToolButton:pressed {
-                background: #1a1e28;
-            }
-            QToolButton:disabled {
-                background: #1a1d24;
-                color: #4b5563;
-                border-color: #232730;
-            }
-        """)
-        tb.addAction(act_new)
-        tb.addAction(act_dem)
-        tb.addAction(act_export)
-        tb.addSeparator()
-        tb.addAction(act_open)
-        tb.addAction(act_save)
-        tb.addSeparator()
-        tb.addAction(act_ai)
-        tb.addAction(act_sweep)
-        tb.addAction(act_report)
-        tb.addSeparator()
-        tb.addAction(act_reload)
-
         # ---- 底部现代状态栏 ----
         sb = self.statusBar()
         sb.setStyleSheet("""
             QStatusBar {
-                background: #13151a;
+                background: #0b0e14;
                 color: #8b949e;
-                border-top: 1px solid #2b303d;
+                border-top: 1px solid #232834;
                 font-size: 11px;
                 padding: 2px 8px;
             }
@@ -374,7 +315,7 @@ class MainWindow(QMainWindow):
                 border: none;
             }
         """)
-        self.status_label = QLabel(" " + tr("就绪 ").strip() + " " + tr("｜ F5=运行  ■=停止  "))
+        self.status_label = QLabel(" " + tr("就绪").strip() + " | [F5] " + tr("运行工作流"))
         self.status_label.setStyleSheet("color: #8b949e; font-weight: 500;")
         sb.addWidget(self.status_label, 1)
 
@@ -382,12 +323,12 @@ class MainWindow(QMainWindow):
         self.progress.setMaximumWidth(240)
         self.progress.setStyleSheet("""
             QProgressBar {
-                background: #15171e;
-                border: 1px solid #2b303d;
+                background: #131720;
+                border: 1px solid #28303f;
                 border-radius: 4px;
                 height: 12px;
                 text-align: center;
-                color: #e6edf3;
+                color: #f0f6fc;
                 font-size: 10px;
             }
             QProgressBar::chunk {
@@ -398,37 +339,37 @@ class MainWindow(QMainWindow):
         self.progress.hide()
         sb.addPermanentWidget(self.progress)
 
-        self.pill_grid = QLabel(tr("🌐 网格: 未初始化"))
+        self.pill_grid = QLabel(tr("网格: 未初始化"))
         self.pill_grid.setStyleSheet("""
             QLabel {
-                background: #1e222b;
-                color: #60a5fa;
-                border: 1px solid #2b303d;
-                border-radius: 9px;
+                background: #171d27;
+                color: #58a6ff;
+                border: 1px solid #263040;
+                border-radius: 4px;
                 padding: 2px 8px;
                 font-size: 11px;
                 font-weight: 500;
             }
         """)
-        self.pill_steps = QLabel(tr("⚙️ 步骤: 0 步"))
+        self.pill_steps = QLabel(tr("步骤: 0 步"))
         self.pill_steps.setStyleSheet("""
             QLabel {
-                background: #1e222b;
+                background: #14221c;
                 color: #34d399;
-                border: 1px solid #2b303d;
-                border-radius: 9px;
+                border: 1px solid #1e3a2b;
+                border-radius: 4px;
                 padding: 2px 8px;
                 font-size: 11px;
                 font-weight: 500;
             }
         """)
-        self.pill_frames = QLabel(tr("🎞️ 回放帧: 0"))
+        self.pill_frames = QLabel(tr("动画帧: 0"))
         self.pill_frames.setStyleSheet("""
             QLabel {
-                background: #1e222b;
-                color: #cbd5e1;
-                border: 1px solid #2b303d;
-                border-radius: 9px;
+                background: #1a1e27;
+                color: #94a3b8;
+                border: 1px solid #282f3d;
+                border-radius: 4px;
                 padding: 2px 8px;
                 font-size: 11px;
                 font-weight: 500;
@@ -452,10 +393,10 @@ class MainWindow(QMainWindow):
         if geo is not None:
             self.restoreGeometry(geo)
         state = self.settings.value("windowState")
-        if state is not None and self.settings.value("winstate_ver", 0, int) == 3:
+        if state is not None and self.settings.value("winstate_ver", 0, int) == 4:
             self.restoreState(state)
         else:
-            self.settings.setValue("winstate_ver", 3)
+            self.settings.setValue("winstate_ver", 4)
         rf = self.settings.value("recent_files", []) or []
         if isinstance(rf, str):          # QSettings 单条目时可能返回纯字符串
             rf = [rf]
@@ -479,7 +420,7 @@ class MainWindow(QMainWindow):
                     w.wait(5000)
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
-        self.settings.setValue("winstate_ver", 3)
+        self.settings.setValue("winstate_ver", 4)
         self.settings.setValue("recent_files", self.recent_files)
         super().closeEvent(ev)
 
@@ -971,7 +912,7 @@ class MainWindow(QMainWindow):
             return
         self.workflow_panel.load_workflow(wf)
         self.log(tr("已载入预设: {0} —— {1}").format(item.text(), wf.get("doc", "")))
-        self.log(tr("点 ▶ 运行 即可（预设会自动建网格）"))
+        self.log(tr("按 F5 或点【开始运行工作流】即可（预设会自动建网格）"))
         self._update_status_pills()
 
     # ================================================== 插件/帮助
@@ -1004,7 +945,7 @@ class MainWindow(QMainWindow):
         self._fill_tree(self.search.text())
         self.workflow_panel._refresh_list()
         self.log("已切换到中文显示" if lang == "zh" else "Switched to English display")
-        r = QMessageBox.question(self, tr("🌐 组件显示语言 / Language"),
+        r = QMessageBox.question(self, tr("组件显示语言 / Language"),
                                  tr("语言将在重启后完全生效，现在重启吗？"),
                                  QMessageBox.Yes | QMessageBox.No)
         if r == QMessageBox.Yes:
@@ -1012,7 +953,7 @@ class MainWindow(QMainWindow):
             from ..core.i18n import restart_command
             self.settings.setValue("geometry", self.saveGeometry())
             self.settings.setValue("windowState", self.saveState())
-            self.settings.setValue("winstate_ver", 3)
+            self.settings.setValue("winstate_ver", 4)
             self.settings.setValue("recent_files", self.recent_files)
             QProcess.startDetached(restart_command()[0], restart_command()[1:])
             _sys.exit(0)
@@ -1032,13 +973,13 @@ class MainWindow(QMainWindow):
                 shape = getattr(self.ws.grid, "shape", None)
                 n = self.ws.grid.number_of_nodes
                 if shape and len(shape) == 2:
-                    self.pill_grid.setText(f"🌐 网格: {shape[0]}×{shape[1]} ({n:,} 节点)")
+                    self.pill_grid.setText(f"网格: {shape[0]}×{shape[1]} ({n:,} 节点)")
                 else:
-                    self.pill_grid.setText(f"🌐 网格: {self.ws.grid_info.get('type', '非规则')} ({n:,} 节点)")
+                    self.pill_grid.setText(f"网格: {self.ws.grid_info.get('type', '非规则')} ({n:,} 节点)")
             else:
-                self.pill_grid.setText(tr("🌐 网格: 未初始化"))
+                self.pill_grid.setText(tr("网格: 未初始化"))
         if hasattr(self, "pill_steps") and hasattr(self, "workflow_panel"):
             steps = len(getattr(self.workflow_panel, "steps", []))
-            self.pill_steps.setText(tr("⚙️ 步骤: {0} 步").format(steps))
+            self.pill_steps.setText(tr("步骤: {0} 步").format(steps))
         if hasattr(self, "pill_frames") and hasattr(self, "_frames"):
-            self.pill_frames.setText(tr("🎞️ 回放帧: {0}").format(len(self._frames)))
+            self.pill_frames.setText(tr("动画: {0} 帧").format(len(self._frames)))

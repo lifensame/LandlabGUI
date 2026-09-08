@@ -8,29 +8,29 @@ from __future__ import annotations
 import matplotlib
 
 # =====================================================================
-# 现代科学工作室深色调色板 (Studio Dark Palette - Slate & Zinc)
+# 现代科学工作室深色调色板 (Studio Dark Palette - Slate & Carbon)
 # =====================================================================
-BG_ROOT      = "#13151a"   # 窗口最底层暗空背景
-BG_PANEL     = "#1a1d24"   # 工作区、Docks、画布面板底色
-BG_CARD      = "#212530"   # 分组容器卡片、对话框底色
-BG_LIGHT     = "#282d39"   # 按钮默认底色、菜单悬停
-BG_HOVER     = "#323846"   # 悬停强调
-BG_INPUT     = "#15171e"   # 输入框、列表内部底色
+BG_ROOT      = "#0d1117"   # 窗口最底层暗空背景
+BG_PANEL     = "#161b22"   # 工作区、Docks、画布面板底色
+BG_CARD      = "#1c212c"   # 分组容器卡片、对话框底色
+BG_LIGHT     = "#212733"   # 按钮默认底色、菜单悬停
+BG_HOVER     = "#2c3342"   # 悬停强调
+BG_INPUT     = "#0f131a"   # 输入框、列表内部底色
 
-BORDER       = "#2b303d"   # 极细边框
-BORDER_LIGHT = "#383f50"   # 高亮边框、控件边缘
-BORDER_FOCUS = "#3b82f6"   # 科技蓝焦点呼吸框
+BORDER       = "#262c37"   # 极细边框
+BORDER_LIGHT = "#333b4b"   # 高亮边框、控件边缘
+BORDER_FOCUS = "#388bfd"   # 科技蓝焦点呼吸框
 
-TEXT         = "#e6edf3"   # 主要文本（高对比净白）
+TEXT         = "#f0f6fc"   # 主要文本（高对比净白）
 TEXT_MUTED   = "#8b949e"   # 次要文本、参数标签、说明文字
-TEXT_DIM     = "#646c7a"   # 极弱辅助文字
+TEXT_DIM     = "#656d78"   # 极弱辅助文字
 
-ACCENT       = "#3b82f6"   # 科技蓝（主选区、链接）
-ACCENT_LIGHT = "#60a5fa"
+ACCENT       = "#2563eb"   # 科技蓝（主选区、高亮）
+ACCENT_LIGHT = "#58a6ff"
 ACCENT_GREEN = "#10b981"   # 翡翠绿（运行按钮、成功）
 ACCENT_RED   = "#f43f5e"   # 珊瑚红（停止按钮、删除）
 ACCENT_AMBER = "#f59e0b"   # 琥珀黄（告警、提示）
-SEL          = "#1d3b5e"   # 柔和选中背景
+SEL          = "#1b3152"   # 柔和选中背景
 
 DARK_QSS = f"""
 /* 全局基础设置 */
@@ -43,14 +43,15 @@ QMainWindow, QDialog, QWidget {{
 
 /* 菜单栏与上下文菜单 */
 QMenuBar {{
-    background: {BG_PANEL};
-    color: {TEXT};
+    background: #11141b;
+    color: {TEXT_MUTED};
     border-bottom: 1px solid {BORDER};
-    padding: 2px 6px;
+    padding: 3px 8px;
+    font-size: 12px;
 }}
 QMenuBar::item {{
     background: transparent;
-    padding: 5px 10px;
+    padding: 5px 12px;
     border-radius: 4px;
 }}
 QMenuBar::item:selected {{
@@ -58,7 +59,7 @@ QMenuBar::item:selected {{
     color: #ffffff;
 }}
 QMenu {{
-    background: #1d212a;
+    background: #161b23;
     color: {TEXT};
     border: 1px solid {BORDER_LIGHT};
     border-radius: 6px;
@@ -69,8 +70,8 @@ QMenu::item {{
     border-radius: 4px;
 }}
 QMenu::item:selected {{
-    background: {ACCENT};
-    color: #ffffff;
+    background: {SEL};
+    color: {ACCENT_LIGHT};
 }}
 QMenu::separator {{
     height: 1px;
@@ -78,7 +79,7 @@ QMenu::separator {{
     margin: 4px 8px;
 }}
 
-/* 工具栏 */
+/* 工具栏（若开启则显示极简风格） */
 QToolBar {{
     background: {BG_PANEL};
     border-bottom: 1px solid {BORDER};
@@ -113,7 +114,7 @@ QPushButton {{
 }}
 QPushButton:hover {{
     background: {BG_HOVER};
-    border-color: {ACCENT};
+    border-color: {ACCENT_LIGHT};
     color: #ffffff;
 }}
 QPushButton:pressed {{
@@ -136,7 +137,7 @@ QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox {{
 }}
 QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 1px solid {BORDER_FOCUS};
-    background: #181b24;
+    background: #141822;
 }}
 QComboBox {{
     background: {BG_LIGHT};
@@ -192,13 +193,13 @@ QHeaderView::section {{
     font-weight: 600;
 }}
 
-/* 现代化卡片式 GroupBox (去穿透式老旧框) */
+/* 现代化卡片式 GroupBox */
 QGroupBox {{
     background: {BG_PANEL};
     border: 1px solid {BORDER};
     border-radius: 8px;
-    margin-top: 14px;
-    padding: 14px 10px 10px 10px;
+    margin-top: 16px;
+    padding: 16px 12px 12px 12px;
     font-weight: 600;
     color: {TEXT_MUTED};
 }}
@@ -207,9 +208,9 @@ QGroupBox::title {{
     subcontrol-position: top left;
     left: 12px;
     top: 1px;
-    padding: 2px 8px;
+    padding: 2px 10px;
     background: {BG_CARD};
-    border: 1px solid {BORDER};
+    border: 1px solid {BORDER_LIGHT};
     border-radius: 4px;
     color: {TEXT};
     font-size: 11px;
@@ -238,7 +239,7 @@ QTabBar::tab:hover {{
 QTabBar::tab:selected {{
     background: {BG_PANEL};
     color: #ffffff;
-    border-bottom: 2px solid {ACCENT};
+    border-bottom: 2px solid {ACCENT_LIGHT};
     font-weight: 600;
 }}
 
@@ -249,17 +250,18 @@ QDockWidget {{
 }}
 QDockWidget::title {{
     background: {BG_PANEL};
-    padding: 7px 10px;
+    padding: 7px 12px;
     border-bottom: 1px solid {BORDER};
     font-weight: 600;
+    font-size: 12px;
 }}
 
 /* 状态栏与进度条 */
 QStatusBar {{
-    background: #101216;
+    background: #0b0e14;
     color: {TEXT_MUTED};
     border-top: 1px solid {BORDER};
-    padding: 2px;
+    padding: 2px 8px;
 }}
 QProgressBar {{
     background: {BG_INPUT};
@@ -271,7 +273,7 @@ QProgressBar {{
     height: 14px;
 }}
 QProgressBar::chunk {{
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563eb, stop:1 {ACCENT});
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #1d4ed8, stop:1 {ACCENT_LIGHT});
     border-radius: 4px;
 }}
 

@@ -18,7 +18,7 @@ class ConsolePanel(QWidget):
 
         hbar = QHBoxLayout()
         hbar.setContentsMargins(4, 2, 4, 2)
-        lbl = QLabel("🖥️ " + tr("系统运行日志"))
+        lbl = QLabel(tr("系统运行日志"))
         lbl.setStyleSheet("color: #8b949e; font-size: 11px; font-weight: 600;")
         btn_clear = QPushButton(tr("清空日志"))
         btn_clear.setFixedHeight(22)

@@ -98,7 +98,7 @@ class DemDownloadDialog(QDialog):
         root.addWidget(gb3)
 
         bb = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        bb.button(QDialogButtonBox.Ok).setText(tr("🌐 下载并建网格"))
+        bb.button(QDialogButtonBox.Ok).setText(tr("下载并建网格"))
         bb.accepted.connect(self._accept)
         bb.rejected.connect(self.reject)
         root.addWidget(bb)
@@ -155,7 +155,7 @@ class DemDownloadDialog(QDialog):
             w, h = info["nodes"]
             self.info_label.setText(tr(
                 "预计网格: {0} 格 | 分辨率≈{1} m/格").format(f"{h}×{w}", f"{info['dx']:.0f}")
-                + (tr("  ⚠ 过大，建议降低缩放") if w * h > 1_200_000 else ""))
+                + (tr("  [警告] 节点过多，建议降低缩放") if w * h > 1_200_000 else ""))
         except Exception:
             self.info_label.setText("")
 

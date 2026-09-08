@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (QDialog, QHBoxLayout, QLabel, QPushButton,
 from ..core.i18n import tr
 
 _PAGES = [
-    ("欢迎使用 Landlab 地貌模拟工作台 🌏",
+    ("欢迎使用 Landlab 地貌模拟工作台",
      "这是一个可视化的地貌演化模拟器：不用写代码，点选组件就能\n"
      "搭建\"抬升→汇流→侵蚀→扩散\"的工作流并实时看到山脉长出来。\n\n"
      "本向导用 4 步带你走完基本流程。"),
@@ -26,10 +26,10 @@ _PAGES = [
      "双击步骤列表中的条目可改参数（鼠标悬停看官方文档）。\n"
      "想偷懒？直接双击左下角【快速测试】预设，全部自动配好。"),
     ("第 3 步 · 运行并观察",
-     "点工具栏【▶ 运行工作流】(F5)。\n\n"
+     "点工作流面板【开始运行工作流】(F5)。\n\n"
      "· 右侧画布实时刷新：地形 / 汇水面积 / 坡度-面积 / 剖面 / 3D\n"
      "· 地形图上可缩放平移、点击查值、\"取点剖面\"画任意方向剖面\n"
-     "· 底部控制台显示全部日志；随时可【■ 停止】"),
+     "· 底部控制台显示全部日志；随时可【停止】"),
     ("第 4 步 · 分析与导出",
      "科研三件套都在菜单里：\n\n"
      "· 【工具 → 参数扫描实验】批量跑参数对比（论文级图表）\n"
@@ -82,7 +82,7 @@ class WelcomeWizard(QDialog):
     def _sync(self):
         last = self.stack.currentIndex() == len(_PAGES) - 1
         self.btn_prev.setEnabled(self.stack.currentIndex() > 0)
-        self.btn_next.setText(tr("完成 🎉") if last else tr("下一步"))
+        self.btn_next.setText(tr("完成") if last else tr("下一步"))
 
     def _finish(self):
         if self.mw is not None and self.stack.currentIndex() == len(_PAGES) - 1:

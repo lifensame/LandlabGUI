@@ -80,7 +80,7 @@ class CodeEditorPanel(QWidget):
         btns = QHBoxLayout()
         btns.setContentsMargins(2, 2, 2, 2)
         btns.setSpacing(8)
-        self.btn_run = QPushButton(tr("▶ 运行代码 (Ctrl+R)"))
+        self.btn_run = QPushButton(tr("运行代码 (Ctrl+R)"))
         self.btn_run.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #059669, stop:1 #10b981);

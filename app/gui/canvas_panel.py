@@ -141,33 +141,33 @@ class CanvasPanel(QTabWidget):
         bar = QHBoxLayout()
         bar.setContentsMargins(8, 4, 8, 4)
         bar.setSpacing(10)
-        self.btn_pick = QPushButton(tr("📏 取点剖面"))
+        self.btn_pick = QPushButton(tr("取点剖面"))
         self.btn_pick.setCheckable(True)
         self.btn_pick.setToolTip(tr("勾选后在地形图上点两个点，即画出任意方向的地形剖面"))
         self.btn_pick.setStyleSheet("""
             QPushButton {
-                background: #212530;
+                background: #1c222c;
                 color: #e6edf3;
-                border: 1px solid #373e4d;
+                border: 1px solid #2e3646;
                 border-radius: 6px;
                 padding: 4px 12px;
                 font-weight: 500;
             }
             QPushButton:hover {
-                background: #2d3342;
-                border-color: #3b82f6;
+                background: #252d3a;
+                border-color: #388bfd;
             }
             QPushButton:checked {
-                background: #1e3a8a;
-                border-color: #3b82f6;
-                color: #60a5fa;
+                background: #162a45;
+                border-color: #388bfd;
+                color: #58a6ff;
                 font-weight: 600;
             }
         """)
         self.btn_pick.toggled.connect(self._toggle_pick)
         bar.addWidget(self.btn_pick)
         self.pick_hint = QLabel("")
-        self.pick_hint.setStyleSheet("color:#60a5fa; font-weight: 500;")
+        self.pick_hint.setStyleSheet("color:#58a6ff; font-weight: 500;")
         bar.addWidget(self.pick_hint)
         bar.addStretch()
         lbl_field = QLabel(tr("查看字段:"))
@@ -180,7 +180,7 @@ class CanvasPanel(QTabWidget):
         self.field_combo.currentTextChanged.connect(self._on_view_field_changed)
         bar.addWidget(self.field_combo)
         wrap = QWidget()
-        wrap.setStyleSheet("background: #1e222b; border: 1px solid #2b303d; border-radius: 6px; margin: 2px;")
+        wrap.setStyleSheet("background: #161b23; border: 1px solid #262c37; border-radius: 6px; margin: 2px;")
         wrap.setLayout(bar)
         self.tab_terrain.layout().insertWidget(1, wrap)
 
@@ -188,32 +188,32 @@ class CanvasPanel(QTabWidget):
         rbar = QHBoxLayout()
         rbar.setContentsMargins(8, 4, 8, 4)
         rbar.setSpacing(10)
-        self.btn_play = QPushButton(tr("▶ 回放"))
+        self.btn_play = QPushButton(tr("时间轴回放"))
         self.btn_play.setCheckable(True)
         self.btn_play.setEnabled(False)
         self.btn_play.setToolTip(tr("按时间轴回放本次模拟的演化过程"))
         self.btn_play.setStyleSheet("""
             QPushButton {
-                background: #212530;
+                background: #1c222c;
                 color: #e6edf3;
-                border: 1px solid #373e4d;
+                border: 1px solid #2e3646;
                 border-radius: 6px;
                 padding: 4px 14px;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background: #283040;
+                background: #252d3a;
                 border-color: #10b981;
             }
             QPushButton:checked {
-                background: #047857;
+                background: #064e3b;
                 border-color: #10b981;
                 color: #ffffff;
             }
             QPushButton:disabled {
-                background: #1a1d24;
-                color: #525866;
-                border-color: #2b303d;
+                background: #141820;
+                color: #4b5563;
+                border-color: #222834;
             }
         """)
         self.btn_play.toggled.connect(self._toggle_replay)
@@ -224,16 +224,16 @@ class CanvasPanel(QTabWidget):
         self.slider.setStyleSheet("""
             QSlider::groove:horizontal {
                 height: 6px;
-                background: #15171e;
+                background: #10141b;
                 border-radius: 3px;
-                border: 1px solid #2b303d;
+                border: 1px solid #262c37;
             }
             QSlider::sub-page:horizontal {
                 background: #2563eb;
                 border-radius: 3px;
             }
             QSlider::handle:horizontal {
-                background: #60a5fa;
+                background: #58a6ff;
                 border: 2px solid #ffffff;
                 width: 14px;
                 margin-top: -5px;
@@ -241,7 +241,7 @@ class CanvasPanel(QTabWidget):
                 border-radius: 7px;
             }
             QSlider::handle:horizontal:hover {
-                background: #93c5fd;
+                background: #79b8ff;
             }
         """)
         self.slider.valueChanged.connect(self._on_slider)
@@ -250,12 +250,12 @@ class CanvasPanel(QTabWidget):
         self.frame_label.setStyleSheet("color:#8b949e; font-size: 11px; font-weight: 500;")
         rbar.addWidget(self.frame_label)
         wrap_r = QWidget()
-        wrap_r.setStyleSheet("background: #1e222b; border: 1px solid #2b303d; border-radius: 6px; margin: 2px;")
+        wrap_r.setStyleSheet("background: #161b23; border: 1px solid #262c37; border-radius: 6px; margin: 2px;")
         wrap_r.setLayout(rbar)
         self.tab_terrain.layout().insertWidget(2, wrap_r)
 
-        self.info_label = QLabel(tr("💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移"))
-        self.info_label.setStyleSheet("color:#64748b; font-size: 11px; padding: 2px 6px;")
+        self.info_label = QLabel(tr("模拟完成后在此交互查看图表 · 单击画布查值 · 滚轮缩放与拖拽平移"))
+        self.info_label.setStyleSheet("color:#656d78; font-size: 11px; padding: 2px 6px;")
         self.info_label.setWordWrap(True)
         wrap2 = QWidget()
         v = QVBoxLayout(wrap2)
@@ -546,7 +546,7 @@ class CanvasPanel(QTabWidget):
                 shown += 1
             except Exception:
                 continue
-        self.info_label.setText("📍 " + "  |  ".join(parts))
+        self.info_label.setText("[采样数值] " + "  |  ".join(parts))
 
     # ================================================= 取点剖面
     def _toggle_pick(self, on):
