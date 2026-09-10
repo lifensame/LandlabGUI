@@ -116,6 +116,11 @@ class Engine:
         try:
             # 3) 注入时间步长（once_at_start 插件也要按 dt 施加通量）
             ws.dt = dt
+            # 运行状态属于"本次运行"：历史曲线与完成步数都不能跨多次运行叠加，
+            # 否则演化历史的时间轴会回跳、报告步数也会算错
+            ws.history.clear()
+            ws.steps_done = 0
+            ws.interrupted = False
             # 4) 启动前一次性步骤
             for s in start_steps:
                 self._exec_step(s, comps, dt=dt)
@@ -124,9 +129,11 @@ class Engine:
             for i in range(n_steps):
                 if self._stopped():
                     log(tr("用户中断于第 {0}/{1} 步").format(i + 1, n_steps))
+                    ws.interrupted = True
                     break
                 for s in loop_steps:
                     self._exec_step(s, comps, dt=dt)
+                ws.steps_done = i + 1
                 if (i + 1) % history_every == 0 or i == 0:
                     z = ws.at_node["topographic__elevation"]
                     ws.history.append((i + 1, float(np.nanmean(z)), float(np.nanmax(z))))
@@ -134,9 +141,9 @@ class Engine:
                     self._snapshot()
                 self._progress(i + 1, n_steps)
 
-            # 5) 结束分析步骤
+            # 5) 结束分析步骤（同样传入 dt：结束时机上的求解类组件也要按 dt 推进）
             for s in end_steps:
-                self._exec_step(s, comps)
+                self._exec_step(s, comps, dt=dt)
 
             if not self._stopped():
                 log(tr("=== 运行完成 ==="))
@@ -144,8 +151,8 @@ class Engine:
             log(tr("最终地形: 平均 {0} m, 最大 {1} m").format(f"{np.nanmean(z):.1f}", f"{np.nanmax(z):.1f}"))
             self._snapshot()
 
-            # 6) 导出
-            if wf.get("outputs", {}).get("dir") and not self._stopped():
+            # 6) 导出（中断也导出：长任务被停止时更需要保留已达成的中间结果）
+            if wf.get("outputs", {}).get("dir"):
                 self._export(wf["outputs"])
         except Exception:
             log(tr("运行出错") + ":\n" + traceback.format_exc())
@@ -196,7 +203,7 @@ class Engine:
         elif mode == "south_open":
             g.set_closed_boundaries_at_grid_edges(True, True, True, True)
             bottom = np.where(g.node_y == g.node_y.min())[0]
-            g.status_at_node[bottom] = 1        # 1=固定值(开放出水口)
+            g.status_at_node[bottom] = g.BC_NODE_IS_FIXED_VALUE   # 固定值=开放出水口
             self.log(tr("边界: 四周封闭 + 南缘开放出水口（教程默认）"))
 
     # -------------------------------------------------- 步骤执行

@@ -571,7 +571,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, tr("空工作流"),
                                 tr("请在左侧组件库双击组件/插件添加步骤，或载入场景预设"))
             return
-        wf = self.workflow_panel.to_workflow(tr("未命名"))
+        wf = self.workflow_panel.to_workflow()
         # 预校验：所有步骤引用的组件/插件必须存在（避免建完网格才在中途失败）
         missing = sorted({(st.get("component") or st.get("plugin"))
                           for st in wf["steps"]
@@ -866,7 +866,7 @@ class MainWindow(QMainWindow):
         out = QFileDialog.getExistingDirectory(self, tr("选择报告输出目录"), os.getcwd())
         if not out:
             return
-        wf = self.workflow_panel.to_workflow(tr("未命名"))
+        wf = self.workflow_panel.to_workflow()
         self.func_worker = FuncWorker(lambda: self._report_job(wf, out))
         self.func_worker.sig_log.connect(self.log)
         self.func_worker.sig_done.connect(self._on_func_done)
@@ -891,7 +891,7 @@ class MainWindow(QMainWindow):
                                               tr("工作流 JSON (*.json)"))
         if not path:
             return
-        wf = self.workflow_panel.to_workflow(tr("未命名"))
+        wf = self.workflow_panel.to_workflow()
         with open(path, "w", encoding="utf-8") as f:
             json.dump(wf, f, ensure_ascii=False, indent=2)
         self.log(tr("工作流已保存: {0}").format(path))

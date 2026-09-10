@@ -114,9 +114,11 @@ def generate_report(ws: Workspace, wf: dict, out_dir: str, log=print) -> str:
             lines.append(f"| 最大汇水面积 | {np.nanmax(a):.3g} m² |")
         if "channel__chi_index" in ws.at_node:
             lines.append(f"| χ 指数最大值 | {np.nanmax(ws.at_node['channel__chi_index']):.3g} |")
-    if ws.history:
+    done = getattr(ws, "steps_done", 0) or (ws.history[-1][0] if ws.history else 0)
+    if done:
         lines.append("")
-        lines.append(f"- 实际运行 {ws.history[-1][0]} 步（含中断）")
+        note = "（用户中断）" if getattr(ws, "interrupted", False) else ""
+        lines.append(f"- 实际运行 {done} 步{note}")
 
     lines += ["", "## 图件", ""]
     for title, fn in imgs:

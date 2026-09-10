@@ -20,6 +20,8 @@ class Workspace:
         self.grid_info: dict = {}         # 网格描述 {type, params}
         self.components: dict = {}        # 最近一次运行实例化的组件 {step_id: 实例}
         self.history: list = []           # 每次 (步数, 平均高程, 最大高程) 记录
+        self.steps_done = 0               # 最近一次运行实际完成的步数
+        self.interrupted = False          # 最近一次运行是否被用户中断
         self.log_fn = print               # GUI 注入的日志函数
         self.dt = 1.0                     # 当前时间步长(yr)：引擎在时间循环中注入，
                                           # 插件按 物理量×workspace.dt 施加通量

@@ -157,6 +157,15 @@ class WorkflowPanel(QWidget):
         run_row.addWidget(self.btn_stop_big, stretch=1)
         root.addLayout(run_row)
 
+        # ---- 工作流名称（随保存/报告/AI 一起走） ----
+        name_row = QHBoxLayout()
+        name_row.setSpacing(8)
+        name_row.addWidget(QLabel(tr("工作流名称")))
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText(tr("未命名"))
+        name_row.addWidget(self.name_edit, stretch=1)
+        root.addLayout(name_row)
+
         # ---- 网格与时间 ----
         h_top = QHBoxLayout()
         h_top.setSpacing(10)
@@ -191,6 +200,11 @@ class WorkflowPanel(QWidget):
         self.refresh_every.setRange(1, 100000)
         self.refresh_every.setValue(10)
         ft.addRow(tr("画面刷新间隔(步)"), self.refresh_every)
+        self.history_every = QSpinBox()
+        self.history_every.setRange(1, 100000)
+        self.history_every.setValue(5)
+        self.history_every.setToolTip(tr("每隔多少步记录一次平均/最大高程（演化历史图与实验报告用）"))
+        ft.addRow(tr("历史记录间隔(步)"), self.history_every)
         h_top.addWidget(gb_t, stretch=1)
         root.addLayout(h_top)
 
@@ -363,10 +377,11 @@ class WorkflowPanel(QWidget):
 
     # ------------------------------------------------ 工作流打包/装载
     def to_workflow(self, name=None) -> dict:
-        wf = {"version": 1, "name": name or tr("未命名"),
+        wf = {"version": 1,
+              "name": name or self.name_edit.text().strip() or tr("未命名"),
               "time": {"dt": float(self.dt.value()), "n_steps": int(self.n_steps.value()),
                        "refresh_every": int(self.refresh_every.value()),
-                       "history_every": max(1, int(self.refresh_every.value()) // 2)},
+                       "history_every": int(self.history_every.value())},
               "steps": [dict(s) for s in self.steps]}
         if self.grid_cfg:
             # 网格配置始终保存；是否"运行时重建"由 rebuild 标志决定
@@ -388,9 +403,13 @@ class WorkflowPanel(QWidget):
 
     def load_workflow(self, wf: dict):
         t = wf.get("time", {})
+        self.name_edit.setText(str(wf.get("name") or ""))
         self.dt.setValue(float(t.get("dt", 250.0)))
         self.n_steps.setValue(int(t.get("n_steps", 100)))
-        self.refresh_every.setValue(int(t.get("refresh_every", 10)))
+        refresh = int(t.get("refresh_every", 10))
+        self.refresh_every.setValue(refresh)
+        # 旧工作流（v2.1.0 之前没有 history_every）沿用原有推导规则，行为保持不变
+        self.history_every.setValue(int(t.get("history_every", max(1, refresh // 2))))
         self.steps = []
         for s in wf.get("steps", []):
             step = dict(s)
