@@ -1,9 +1,12 @@
 # Landlab 地貌模拟工作台 / Landlab Geomorphology Workbench
 
+当前版本：**v2.1.2**（[更新日志](https://github.com/lifensame/LandlabGUI/releases)）
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Landlab](https://img.shields.io/badge/built%20on-landlab%202.x-blueviolet)
 ![Python](https://img.shields.io/badge/python-3.10%2B-informational)
 ![GUI](https://img.shields.io/badge/GUI-PySide6-green)
+![Version](https://img.shields.io/badge/version-v2.1.2-brightgreen)
 
 为 [Landlab](https://landlab.csdms.io/) 2.x 打造的可视化桌面工作台（PySide6，中文/English 双语界面）。
 A visual desktop workbench for the [Landlab](https://landlab.csdms.io/) landscape evolution framework — no coding required: build workflows from 87 components, run real-time simulations, analyze and export GIS data.
@@ -41,14 +44,21 @@ A visual desktop workbench for the [Landlab](https://landlab.csdms.io/) landscap
 - **体验**：深色主题；布局与最近文件记忆（下次启动自动恢复）；
   新手引导向导（首次启动自动弹出，帮助菜单可重看）；独立导出菜单（随时导出当前状态）
 - **DEM 导入**：ESRI ASCII (.asc)；**在线真实DEM**：按地名（如"Mount Hua"、富士山）
-  或经纬度范围下载全球真实地形（SRTM/Copernicus，免密钥，可配代理），下载即建网格；
+  或经纬度范围下载全球真实地形（SRTM/Copernicus，免密钥，可配代理），下载即建网格，
+  并自动存成 `.asc` 保存在 `dem_downloads/`（可直接再导入；菜单"网格 → 打开DEM下载文件夹"直达）；
   **导出**：ASCII / NetCDF / VTK(ParaView) / OBJ(Blender)
   / 河网 GeoJSON+Shapefile+CSV（QGIS）
+- **双语**：中文/English 全界面；菜单"帮助 → 组件显示语言"切换（重启后完全生效）
 
 ## 快速开始
 
+**直接用（推荐）**：到 [Releases](https://github.com/lifensame/LandlabGUI/releases)
+下载 `LandlabGUI-v*-win64.zip`，解压后双击 `LandlabGUI.exe` 即可（免安装；
+`plugins/`、`presets/`、`docs/` 都在 exe 旁边，可直接编辑）。
+
+**从源码运行**：
+
 ```powershell
-# 依赖（本机已装 Python 3.14 + landlab 2.11 可直接跳过）
 pip install -r requirements.txt
 
 # 启动
@@ -119,7 +129,15 @@ python build_exe.py
 ## 测试
 
 ```powershell
+# 全部回归测试（offscreen 模式，无需显示器）
 python tests/test_introspection.py
+python tests/test_updater.py
+QT_QPA_PLATFORM=offscreen python tests/test_verified_fixes.py
+QT_QPA_PLATFORM=offscreen python tests/test_architect_fixes.py
+QT_QPA_PLATFORM=offscreen python tests/test_engine_run_state_fixes.py
+QT_QPA_PLATFORM=offscreen python tests/test_dem_download_fixes.py
+QT_QPA_PLATFORM=offscreen python tests/test_export_netcdf_path.py
+QT_QPA_PLATFORM=offscreen python tests/test_i18n_completeness.py
 ```
 
 ## 教程对应关系
