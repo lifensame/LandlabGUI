@@ -130,7 +130,7 @@ _STR_EN = {
     "已请求停止，等待当前步完成...": "Stop requested; waiting for current step...",
     "导出完成": "Export finished", "导出失败": "Export failed",
     "网格 {0} 节点": "Grid: {0} nodes",
-    "真实DEM {1}×{0} 格": "Real DEM {1}×{0} cells",
+    "真实DEM {0}×{1} 格": "Real DEM {0}×{1} cells",
     # ---- 工作流面板 ----
     "网格来源": "Grid Source",
     "运行时按下方配置重建网格": "Rebuild the grid from the config below on each run",
@@ -217,8 +217,8 @@ _STR_EN = {
     "后台导出到 {0} ...": "Exporting in background to {0} ...",
     # ---- 在线DEM ----
     "从在线地图下载真实DEM": "Download Real DEM (Online Map)",
-    "在全球范围内选取真实地形（数据源: SRTM/Copernicus，免密钥）。\n搜索地名后自动填入范围，也可手动输入经纬度；下载后即可进行侵蚀分析。":
-        "Pick real terrain worldwide (source: SRTM/Copernicus, key-free).\nSearch a place name to fill the box, or type lat/lon manually; then run erosion analysis on it.",
+    "在全球范围内选取真实地形（数据源: SRTM/Copernicus，免密钥）。\n搜索地名后自动填入范围，也可手动输入经纬度；下载后即可进行侵蚀分析。\n下载得到的 DEM 会自动存成 .asc 保存在【dem_downloads】文件夹，可在\"打开下载文件夹\"中查看。":
+        "Pick real terrain worldwide (source: SRTM/Copernicus, key-free).\nSearch a place name to fill the box, or type lat/lon manually; then run erosion analysis on it.\nEach download is saved as .asc in the [dem_downloads] folder — see \"Open Downloads Folder\".",
     "① 按地名搜索": "① Search by place name",
     "例: 华山 / Mount Hua / 富士山 / Grand Canyon（歧义名建议用英文）":
         "e.g. Mount Hua / Fuji / Grand Canyon (use English for ambiguous names)",
@@ -247,6 +247,12 @@ _STR_EN = {
     "开始下载在线DEM: {0} ...": "Downloading DEM: {0} ...",
     "DEM下载失败": "DEM Download Failed",
     "在线DEM建网格出错": "Online DEM grid error",
+    "打开下载文件夹": "Open Downloads Folder",
+    "打开DEM下载文件夹": "Open DEM Downloads Folder",
+    "查看已下载保存的 DEM 文件（.asc，可直接再导入）":
+        "Browse saved DEM files (.asc, re-importable directly)",
+    "DEM 已保存: {0}": "DEM saved: {0}",
+    "DEM 存盘失败: {0}": "Could not save DEM: {0}",
     "真实地形已就绪！推荐工作流: 构造抬升(可选) → PriorityFloodFlowRouter → FastscapeEroder → LinearDiffuser，点 ▶ 运行即可模拟河流切割真实山脉":
         "Real terrain ready! Suggested steps: tectonic uplift (optional) → PriorityFloodFlowRouter → FastscapeEroder → LinearDiffuser; hit ▶ Run to carve real mountains",
     # ---- 参数扫描 ----

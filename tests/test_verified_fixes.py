@@ -118,12 +118,17 @@ def test_6_click_run_end_to_end():
     win.workflow_panel.do_export.setChecked(False)
     win.workflow_panel.btn_run_big.click()
     app.processEvents()
-    assert win.worker is not None and win.worker.isRunning()
+    assert win.worker is not None, "点击运行后应创建 SimWorker"
+    worker = win.worker
     loop = QEventLoop()
     QTimer.singleShot(120000, loop.quit)
-    worker = win.worker
+    # 先连信号再判断是否需要等待：QThread.start() 是异步的，isRunning() 在点击后
+    # 可能仍为 False（实测多次出现），用它做断言会偶发失败；而若 worker 跑得比
+    # connect 还快，sig_done 已经发出，此时不该再死等 —— 完成时主窗口会把
+    # self.worker 置 None，据此区分两种情况。
     worker.sig_done.connect(lambda ok, msg: loop.quit())
-    loop.exec()
+    if win.worker is not None:
+        loop.exec()
     app.processEvents()
     assert len(win.history_panel.snapshots) == 1
     win.close()

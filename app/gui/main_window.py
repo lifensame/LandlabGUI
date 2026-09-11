@@ -10,8 +10,8 @@ import os
 import traceback
 
 import numpy as np
-from PySide6.QtCore import QProcess, QSettings, Qt, QThread, QTimer
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtCore import QProcess, QSettings, Qt, QThread, QTimer, QUrl
+from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (QDockWidget, QFileDialog, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMainWindow, QMenu,
                                QMessageBox, QProgressBar, QSplitter, QTabWidget,
@@ -218,6 +218,10 @@ class MainWindow(QMainWindow):
         act_dem.setToolTip(tr("按地名或经纬度范围下载全球真实地形（SRTM/Copernicus，免密钥）"))
         act_dem.triggered.connect(self.download_dem_dialog)
         m_grid.addAction(act_dem)
+        act_dem_dir = QAction(tr("打开DEM下载文件夹"), self)
+        act_dem_dir.setToolTip(tr("查看已下载保存的 DEM 文件（.asc，可直接再导入）"))
+        act_dem_dir.triggered.connect(self.open_dem_dir)
+        m_grid.addAction(act_dem_dir)
         act_export = QAction(tr("导出当前地形..."), self)
         act_export.triggered.connect(self.export_current)
         m_grid.addAction(act_export)
@@ -512,16 +516,31 @@ class MainWindow(QMainWindow):
         self._dem_cfg = cfg
         self._dem_result = None
         self.log(tr("开始下载在线DEM: {0} ...").format(cfg["name"][:60]))
-        from ..core import dem_fetch
-        self.func_worker = FuncWorker(
-            lambda: dem_fetch.fetch_dem(cfg["south"], cfg["north"], cfg["west"],
-                                        cfg["east"], cfg["zoom"],
-                                        proxies=cfg["proxy"],
-                                        log=lambda s: print(s)))
+        self.func_worker = FuncWorker(self._dem_download_and_build, cfg)
         self.func_worker.sig_log.connect(self.log)
         self.func_worker.sig_result.connect(self._dem_ready)
         self.func_worker.sig_done.connect(self._on_dem_done)
         self.func_worker.start()
+
+    def _dem_download_and_build(self, cfg):
+        """后台线程：下载瓦片 → 建网格 → 存盘。
+
+        建网格（大区域实测 1.5 s）与写文件都留在后台，主线程只做显示，
+        否则下载一结束界面会明显卡一下。
+        """
+        from ..core import dem_fetch
+        z2d, dx, meta = dem_fetch.fetch_dem(cfg["south"], cfg["north"], cfg["west"],
+                                            cfg["east"], cfg["zoom"], proxies=cfg["proxy"])
+        from landlab import RasterModelGrid
+        grid = RasterModelGrid(tuple(z2d.shape), xy_spacing=dx)
+        grid.at_node["topographic__elevation"] = np.asarray(z2d, dtype=float).reshape(-1)
+        try:
+            path = dem_fetch.save_dem(grid, cfg.get("name") or "dem")
+        except Exception as e:          # 存盘失败不应连累建网格
+            path = None
+            print(tr("DEM 存盘失败: {0}").format(e))
+        return {"grid": grid, "dx": dx, "meta": meta,
+                "shape": list(z2d.shape), "path": path}
 
     def _dem_ready(self, result):
         self._dem_result = result
@@ -533,25 +552,24 @@ class MainWindow(QMainWindow):
         if not ok or not res:
             QMessageBox.critical(self, tr("DEM下载失败"), msg)
             return
-        z2d, dx, meta = res
         try:
-            from landlab import RasterModelGrid
-            g = RasterModelGrid(tuple(z2d.shape), xy_spacing=dx)
-            g.at_node["topographic__elevation"] = np.asarray(z2d, dtype=float).reshape(-1)
-            self.ws.set_grid(g, {"type": "RasterModelGrid(在线DEM)",
-                                 "params": {"分辨率": f"{dx:.1f} m",
-                                            "区域": cfg.get("name", "")[:60],
-                                            "shape": list(z2d.shape),
-                                            "xy_spacing": dx}})
+            grid, dx = res["grid"], res["dx"]
+            shape = res["shape"]
+            self.ws.set_grid(grid, {"type": "RasterModelGrid(在线DEM)",
+                                    "params": {"分辨率": f"{dx:.1f} m",
+                                               "区域": cfg.get("name", "")[:60],
+                                               "shape": shape,
+                                               "xy_spacing": dx}})
             Engine(self.ws, self.registry.plugins, log=self.log)._apply_boundary(
                 cfg.get("boundary", "south_open"))
             self.canvas.update_all(self.ws)
             self.workflow_panel.set_grid_config(
-                {"type": "RasterModelGrid", "params": {"shape": list(z2d.shape),
-                                                       "xy_spacing": dx}},
+                {"type": "RasterModelGrid", "params": {"shape": shape, "xy_spacing": dx}},
                 None, cfg.get("boundary"), from_dialog=True)
             self._frames_clear()
-            self._set_status(tr("真实DEM {1}×{0} 格").format(z2d.shape[0], z2d.shape[1]))
+            self._set_status(tr("真实DEM {0}×{1} 格").format(shape[0], shape[1]))
+            if res.get("path"):
+                self.log(tr("DEM 已保存: {0}").format(res["path"]))
             self.log(tr("真实地形已就绪！推荐工作流: 构造抬升(可选) → PriorityFloodFlowRouter "
                      "→ FastscapeEroder → LinearDiffuser，点 ▶ 运行即可模拟河流切割真实山脉"))
         except Exception as e:
@@ -933,6 +951,11 @@ class MainWindow(QMainWindow):
 
     def open_plugin_dir(self):
         os.startfile(plugins_dir(APP_ROOT))
+
+    def open_dem_dir(self):
+        """打开 DEM 下载保存目录（没有文件时也打开，便于用户确认位置）。"""
+        from ..core.dem_fetch import downloads_dir
+        QDesktopServices.openUrl(QUrl.fromLocalFile(downloads_dir()))
 
     def _show_wizard(self):
         from .wizard import WelcomeWizard

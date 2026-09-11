@@ -76,18 +76,20 @@ def export_dem_netcdf(grid, path, log=print):
     from landlab.io.netcdf.write import write_netcdf
     names = [n for n in grid.at_node
              if grid.at_node[n].ndim == 1 and grid.at_node[n].shape[0] == grid.number_of_nodes]
+    # netCDF4 的 C 层不支持非 ASCII 路径，且失败方式有两种：
+    #   a) 抛 FileNotFoundError/OSError；
+    #   b) 路径的 UTF-8 字节恰好能被系统编码(GBK)解码时，不报错，
+    #      直接把文件写到当前目录下的乱码文件名里（实测 "gui_results_快速测试\dem.nc"
+    #      → 凭空出现 "gui_results_蹇...昞dem.nc"，而目标目录里什么都没有）。
+    # 所以不能靠 except 兜底，必须"总是"先写纯 ASCII 临时文件再移动。
+    fd, tmp = tempfile.mkstemp(suffix=".nc", prefix="landlab_")
+    os.close(fd)
     try:
-        write_netcdf(path, grid, names=names)
-    except (FileNotFoundError, OSError):
-        # netCDF4 库不支持中文路径：先写唯一临时文件再移动（教程实测 workaround）
-        fd, tmp = tempfile.mkstemp(suffix=".nc", prefix="landlab_")
-        os.close(fd)
-        try:
-            write_netcdf(tmp, grid, names=names)
-            shutil.move(tmp, path)
-        finally:
-            if os.path.exists(tmp):
-                os.remove(tmp)
+        write_netcdf(tmp, grid, names=names)
+        shutil.move(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     log(f"  DEM (NetCDF) -> {path}, {len(names)} 字段")
 
 

@@ -4,14 +4,18 @@
 - 地名搜索: OpenStreetMap Nominatim（免费无密钥）
 - 高程数据: AWS Open Data 的 Terrarium 高程瓦片（含 SRTM/Copernicus/GMTED 等来源，
   免密钥），Web Mercator 瓦片，高程编码 elev = (R*256 + G + B/256) - 32768
+- 下载结果保存到 <应用根目录>/dem_downloads/（ESRI ASCII，GUI 可直接再导入）
 
 所有函数均为纯 Python（无 Qt），可独立测试。网络失败抛带中文说明的异常。
 """
 
 from __future__ import annotations
 
+import datetime
 import io
 import math
+import os
+import re
 
 import numpy as np
 import requests
@@ -174,3 +178,35 @@ def fetch_dem(south: float, north: float, west: float, east: float, zoom: int,
     log(f"高程就绪: {h}x{w} 格, 分辨率≈{dx:.1f} m/格, "
         f"高程 {np.nanmin(z2d):.0f}~{np.nanmax(z2d):.0f} m")
     return z2d, float(dx), meta
+
+
+# ============================================================ 本地保存
+def downloads_dir(base: str = None) -> str:
+    """DEM 下载保存目录（<应用根目录>/dem_downloads），不存在则创建。"""
+    if base is None:
+        from .plugin_loader import app_root
+        base = app_root()
+    d = os.path.join(base, "dem_downloads")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def safe_filename(name: str, fallback: str = "dem") -> str:
+    """把地名转成安全的文件名：去掉路径分隔符与 Windows 非法字符。"""
+    cleaned = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "_", str(name or "")).strip(" ._")
+    return cleaned[:60] or fallback
+
+
+def save_dem(grid, name: str = "dem", out_dir: str = None) -> str:
+    """把当前高程存成 ESRI ASCII（GUI 的"新建网格→从DEM导入"可直接再打开）。
+
+    返回保存的绝对路径。
+    """
+    from landlab.io import esri_ascii
+    out_dir = out_dir or downloads_dir()
+    os.makedirs(out_dir, exist_ok=True)
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = os.path.join(out_dir, f"{safe_filename(name)}_{stamp}.asc")
+    with open(path, "w", encoding="utf-8") as f:
+        esri_ascii.dump(grid, stream=f, at="node", name="topographic__elevation")
+    return path

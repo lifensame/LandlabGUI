@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QDesktopServices
 
 from ..core.i18n import tr
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
@@ -27,7 +28,8 @@ class DemDownloadDialog(QDialog):
         root = QVBoxLayout(self)
         tip = QLabel(tr(
             "在全球范围内选取真实地形（数据源: SRTM/Copernicus，免密钥）。\n"
-            "搜索地名后自动填入范围，也可手动输入经纬度；下载后即可进行侵蚀分析。"))
+            "搜索地名后自动填入范围，也可手动输入经纬度；下载后即可进行侵蚀分析。\n"
+            "下载得到的 DEM 会自动存成 .asc 保存在【dem_downloads】文件夹，可在\"打开下载文件夹\"中查看。"))
         tip.setWordWrap(True)
         root.addWidget(tip)
 
@@ -101,8 +103,18 @@ class DemDownloadDialog(QDialog):
         bb.button(QDialogButtonBox.Ok).setText(tr("下载并建网格"))
         bb.accepted.connect(self._accept)
         bb.rejected.connect(self.reject)
+        btn_dir = bb.addButton(tr("打开下载文件夹"), QDialogButtonBox.ActionRole)
+        btn_dir.setToolTip(tr("查看已下载保存的 DEM 文件（.asc，可直接再导入）"))
+        btn_dir.clicked.connect(self._open_download_dir)
         root.addWidget(bb)
+        # 信号在控件全部就绪后再连：构造期间 setValue 会触发 valueChanged，
+        # 那时 zoom/info_label 还不存在，_update_info 会取不到控件
+        for sp in (self.sp_south, self.sp_north, self.sp_west, self.sp_east):
+            sp.valueChanged.connect(self._update_info)
         self._update_info()
+
+    def _open_download_dir(self):
+        QDesktopServices.openUrl(QUrl.fromLocalFile(dem_fetch.downloads_dir()))
 
     # ------------------------------------------------ 交互
     def search(self):
@@ -146,6 +158,7 @@ class DemDownloadDialog(QDialog):
             self.sp_north.setValue(r["north"])
             self.sp_west.setValue(r["west"])
             self.sp_east.setValue(r["east"])
+            self._update_info()      # 数值恰好没变时 valueChanged 不触发，这里补一次
 
     def _update_info(self):
         try:
