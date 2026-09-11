@@ -39,11 +39,13 @@ ORG, APP_NAME = "LandlabGUI", "main"
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(tr("Landlab 地貌模拟工作台"))
-        self.resize(1500, 900)
+        # 先定语言再建界面：窗口标题等一次性文本也要用对语言
+        # （原先 setWindowTitle 在 set_lang 之前，英文模式下标题永远是中文）
         self.settings = QSettings(ORG, APP_NAME)
         from ..core import i18n
         i18n.set_lang(str(self.settings.value("lang", "zh") or "zh"))
+        self.setWindowTitle(tr("Landlab 地貌模拟工作台"))
+        self.resize(1500, 900)
 
         # ---- 核心对象 ----
         self.ws = Workspace()

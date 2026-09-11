@@ -226,7 +226,7 @@ def test_6_on_dem_done_logs_saved_path():
 
 
 def test_7_open_folder_entry_points_exist():
-    """「打开下载文件夹」入口：菜单项 + 对话框按钮。"""
+    """「打开下载文件夹」入口：菜单项 + 对话框按钮（不依赖当前界面语言）。"""
     with open(MW_PATH, encoding="utf-8") as f:
         mw_src = f.read()
     assert "打开DEM下载文件夹" in mw_src, "网格菜单缺少「打开DEM下载文件夹」"
@@ -237,7 +237,9 @@ def test_7_open_folder_entry_points_exist():
     dlg = DemDownloadDialog(QSettings("LandlabGUI", "main"))
     try:
         texts = [b.text() for b in dlg.findChildren(QDialogButtonBox)[0].buttons()]
-        assert any("打开下载文件夹" in t for t in texts), f"对话框缺少按钮: {texts}"
+        # 语言由 QSettings 决定，中英文都算通过
+        assert any(("打开下载文件夹" in t) or ("Open Downloads Folder" in t)
+                   for t in texts), f"对话框缺少按钮: {texts}"
     finally:
         dlg.close()
 

@@ -482,6 +482,128 @@ _STR_EN = {
         "AI parameters may be imperfect — review each step before running",
     "工作流已载入。请核对各步骤参数（尤其数值量级），然后点 ▶ 运行。":
         "Workflow loaded. Review the step parameters, then hit ▶ Run.",
+
+    # ---- 补齐：画布与图表 ----
+    "汇水面积 A (m²)": "Drainage area A (m²)",
+    "坡度 S": "Slope S",
+    "河道纵剖面": "River long profile",
+    "运行含汇流组件后显示": "Shown after running a flow-routing component",
+    "运行含汇流的组件后显示\n(阈值 A>1e3 m²)":
+        "Shown after running a flow-routing component\n(threshold A>1e3 m²)",
+    "查看字段:": "Field:",
+    "切换地形页显示的字段（运行越多样组件，可选字段越多）":
+        "Switch the field shown on the terrain tab (more components → more fields)",
+    "按时间轴回放本次模拟的演化过程": "Replay the evolution of this run on a timeline",
+    "拖动查看不同时刻的地形": "Drag to view terrain at different moments",
+    "模拟完成后在此交互查看图表 · 单击画布查值 · 滚轮缩放与拖拽平移":
+        "After a run, explore charts here · click to inspect values · scroll to zoom, drag to pan",
+    "回放帧与当前网格形状不符（网格已重建）":
+        "Replay frames do not match the current grid shape (the grid was rebuilt)",
+    "该字段尚无数据（先运行产生它的组件）":
+        "No data for this field yet (run the component that produces it)",
+    "渲染出错": "Render error",
+
+    # ---- 补齐：参数扫描 ----
+    "参数扫描": "Parameter Sweep",
+    "参数扫描结果: {0} ({1} 组)": "Sweep results: {0} ({1} runs)",
+    "扫描完成: {0} 共 {1} 组 (有效 {2} 组)":
+        "Sweep finished: {0} — {1} runs ({2} valid)",
+    "启动并行参数扫描: {0} 组, workers={1} ...":
+        "Starting parallel sweep: {0} runs, workers={1} ...",
+    "用户请求中断，停止派发后续扫描任务":
+        "Interrupted by user; no further sweep tasks will be dispatched",
+    "✓ 完成 {0}/{1}: {2} = {3}": "✓ Done {0}/{1}: {2} = {3}",
+    "扫描 {0} = {1} 失败，已跳过: {2}": "Sweep {0} = {1} failed, skipped: {2}",
+
+    # ---- 补齐：运行历史 ----
+    "有任务正在后台运行，请等待完成或停止":
+        "A task is running in the background; wait for it or stop it first",
+    "B−A 差值: 蓝=侵蚀, 红=堆积": "B−A difference: blue = erosion, red = deposition",
+    "B−A 差值: 平均 {0} m | 最大 {1} m | 起伏 A={2}m, B={3}m":
+        "B−A difference: mean {0} m | max {1} m | relief A={2} m, B={3} m",
+
+    # ---- 补齐：主窗口 ----
+    "快速上手: 双击左下【快速测试】预设 → 按 F5 或点【开始运行工作流】；不熟悉可看 菜单[帮助→新手引导]":
+        "Quick start: double-click the \u201cQuick test\u201d preset (bottom left) → "
+        "press F5 or click \u201cRun workflow\u201d; see Help → Welcome guide",
+    "网格: 未初始化": "Grid: not initialized",
+    "步骤: 0 步": "Steps: 0",
+    "步骤: {0} 步": "Steps: {0}",
+    "动画帧: 0": "Animation: 0",
+    "动画: {0} 帧": "Animation: {0} frames",
+    "就绪": "Ready",
+    "运行工作流": "Run Workflow",
+    "导出演化动画": "Export Evolution Animation",
+    "选择报告输出目录": "Choose Report Output Folder",
+    "保存工作流": "Save Workflow",
+    "打开工作流": "Open Workflow",
+    "工作流 JSON (*.json)": "Workflow JSON (*.json)",
+    "动画 (*.gif)": "Animation (*.gif)",
+    "所有文件 (*)": "All files (*)",
+    "按 F5 或点【开始运行工作流】即可（预设会自动建网格）":
+        "Press F5 or click \u201cRun workflow\u201d (presets build the grid automatically)",
+    "空工作流": "Empty Workflow",
+    "请在左侧组件库双击组件/插件添加步骤，或载入场景预设":
+        "Double-click a component/plugin in the left library to add steps, or load a scene preset",
+    "依赖预检提示": "Dependency Pre-check",
+    "检测到工作流可能缺少前置依赖字段：\n\n{0}\n\n若直接运行，引擎将自动用全零填充缺失字段，这可能导致模拟结果失真。\n是否继续运行？":
+        "The workflow may be missing prerequisite fields:\n\n{0}\n\n"
+        "If you run it anyway, the engine fills missing fields with zeros, which can distort results.\n"
+        "Continue?",
+    "以下功能不存在（插件被删除/改名？）：\n{0}\n\n请删除或修正这些步骤后重试":
+        "These features do not exist (plugin deleted or renamed?):\n{0}\n\n"
+        "Remove or fix these steps and try again",
+    "导出失败: {0}": "Export failed: {0}",
+    "无法获取更新信息，请检查网络连接或代理设置。\n错误: ":
+        "Could not fetch update information. Check your network or proxy settings.\nError: ",
+    "未命名": "Untitled",
+
+    # ---- 补齐：工作流面板 ----
+    "工作流名称": "Workflow name",
+    "历史记录间隔(步)": "History interval (steps)",
+    "每隔多少步记录一次平均/最大高程（演化历史图与实验报告用）":
+        "How often to record mean/max elevation (used by the history chart and reports)",
+    "执行时机": "Timing",
+    "编辑步骤: ": "Edit step: ",
+    "勾选后每次运行都会新建网格（预设场景用）；\n不勾选则沿用当前网格，可反复运行累积演化。":
+        "Checked: build a fresh grid on every run (for presets);\n"
+        "unchecked: reuse the current grid so successive runs accumulate evolution.",
+    "（尚未配置网格 —— 请 菜单[网格]->新建网格 或载入预设）":
+        "(No grid configured — menu Grid → New Grid, or load a preset)",
+    "提示：双击步骤可编辑参数；在左侧双击组件或插件即可添加到工作流":
+        "Tip: double-click a step to edit its parameters; "
+        "double-click a component/plugin on the left to add it",
+
+    # ---- 补齐：代码编辑器 / 控制台 / 向导 ----
+    "运行代码 (Ctrl+R)": "Run Code (Ctrl+R)",
+    "另存为插件": "Save as Plugin",
+    "清空日志": "Clear Log",
+    "完成": "Finish",
+
+    # ---- 补齐：在线 DEM ----
+    "south_open (四周封闭+南缘出水口，教程同款)":
+        "south_open (closed edges + southern outlet; tutorial default)",
+    "  [警告] 节点过多，建议降低缩放": "  [warning] too many cells; lower the zoom",
+
+    # ---- 补齐：AI 助手 ----
+    "用一句自然语言描述想要的模拟场景，AI 自动配置整个工作流。\n兼容任意 OpenAI 风格接口（OpenAI / DeepSeek / Kimi / 本地 Ollama 等），Key 保存在本机，不上传。":
+        "Describe the scenario in one sentence and the AI configures the whole workflow.\n"
+        "Works with any OpenAI-style endpoint (OpenAI / DeepSeek / Kimi / local Ollama). "
+        "The key stays on this machine and is never uploaded.",
+    "例：我想要一个青藏高原式的场景：北缘快速隆升（1e-3 m/yr）南缘缓慢，\n基岩较硬（K=2e-6），网格 100×120，模拟 50 万年，最后输出 χ 和 ksn 分析":
+        "e.g. A Tibetan-plateau style scenario: fast uplift on the northern margin (1e-3 m/yr), "
+        "slow in the south,\nhard bedrock (K=2e-6), 100×120 grid, 500 kyr, "
+        "with χ and ksn analysis at the end",
+    "以下名称 AI 编造了或不存在，已自动移除这些步骤":
+        "The AI invented or referenced names that do not exist; those steps were removed",
+
+    # ---- 补齐：更新对话框 ----
+    "发现新版本": "New Version Available",
+    "（该版本暂无详细更新说明）": "(No detailed release notes for this version)",
+    "暂无更高版本发布。": "No newer release is available.",
+    "您当前运行的是最新版本 Landlab 地貌模拟工作台 (":
+        "You are running the latest Landlab Geomorphology Workbench (",
+    "最新发行版: ": "Latest release: ",
 }
 
 # 分类名英文
@@ -497,11 +619,36 @@ _CATEGORY_EN = {
 }
 
 
+# 英文模式下查不到译文而回退成中文的条目。正常运行不打扰用户，
+# 由 tests/test_i18n_completeness.py 断言其为空，防止以后新增界面文字漏翻。
+_untranslated_seen: set = set()
+_CJK_RE = None
+
+
+def untranslated_seen() -> set:
+    """英文模式下回退到中文原文的条目集合（用于回归测试，期望为空）。"""
+    return set(_untranslated_seen)
+
+
+def reset_untranslated():
+    _untranslated_seen.clear()
+
+
 def tr(s: str) -> str:
     """界面文字翻译：英文模式查表，缺翻译回退中文原文。"""
     if is_zh():
         return s
-    return _STR_EN.get(s) or s
+    hit = _STR_EN.get(s)
+    if hit is not None:
+        return hit
+    # 没查到：记下来（含中文的才值得记，纯符号/英文无需翻译）
+    global _CJK_RE
+    if _CJK_RE is None:
+        import re as _re
+        _CJK_RE = _re.compile(r"[\u4e00-\u9fff]")
+    if _CJK_RE.search(s):
+        _untranslated_seen.add(s)
+    return s
 
 
 def tr_cat(cat: str) -> str:
