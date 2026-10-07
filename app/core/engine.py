@@ -1,0 +1,390 @@
+"""
+执行引擎：把工作流 JSON 变成一次真实的 landlab 模拟。
+====================================================
+
+工作流 JSON 结构（version 1）::
+
+    {
+      "version": 1,
+      "name": "青藏场景",
+      "grid":  {"type": "RasterModelGrid", "params": {...}},     # 可省略=沿用当前网格
+      "terrain": {"mode": "noise", "amplitude": 10, "slope": 0.01, "slope_dir": "S", "seed": 42},
+      "boundary": "south_open" | "all_closed" | "default",
+      "time": {"dt": 250.0, "n_steps": 800, "refresh_every": 10, "history_every": 5},
+      "steps": [
+        {"id": "s1", "kind": "component", "component": "FastscapeEroder",
+         "params": {...}, "when": "every_step"},     # every_step | once_at_start | once_at_end
+        {"id": "p1", "kind": "plugin", "plugin": "青藏高原式抬升",
+         "params": {...}, "when": "every_step"}
+      ],
+      "outputs": {"dir": "results", "formats": ["ascii", "netcdf"], "river_min_area": 1e5}
+    }
+
+引擎职责：
+1. 建网格 / 初始地形 / 边界条件（或沿用 Workspace 现有网格）
+2. 实例化组件前按 _info 自动补齐必填字段
+3. 时间循环：every_step 步骤按列表顺序逐步执行，进度/日志/高程快照通过回调抛出
+4. 循环结束跑 once_at_end（分析类组件），再按需导出
+5. stop_flag 置真则安全中断
+"""
+
+from __future__ import annotations
+
+import os
+import traceback
+
+import numpy as np
+
+import landlab.components as llc
+from landlab import (RasterModelGrid, HexModelGrid, VoronoiDelaunayGrid,
+                     RadialModelGrid, FramedVoronoiGrid, IcosphereGlobalGrid)
+from landlab.io import esri_ascii
+
+from .i18n import tr
+from .introspection import _json_safe
+
+_GRID_CLASSES = {
+    "RasterModelGrid": RasterModelGrid,
+    "HexModelGrid": HexModelGrid,
+    "VoronoiDelaunayGrid": VoronoiDelaunayGrid,
+    "RadialModelGrid": RadialModelGrid,
+    "FramedVoronoiGrid": FramedVoronoiGrid,
+    "IcosphereGlobalGrid": IcosphereGlobalGrid,
+}
+
+
+class Engine:
+    """无状态执行器：run(workflow, workspace, callbacks) 一次调用完成一次模拟。"""
+
+    def __init__(self, workspace, plugins: dict, log=print, progress=None,
+                 snapshot=None, stop_flag=None):
+        """
+        workspace : Workspace（提供 grid 与日志）
+        plugins   : {插件名: PluginSpec}
+        progress  : callable(当前步, 总步数)
+        snapshot  : callable() 每次刷新时取高程数组副本回调（worker 里发信号）
+        stop_flag : 有 .stop 属性的对象或 callable，返回 bool
+        """
+        self.ws = workspace
+        self.plugins = plugins
+        self._log = log
+        self._progress = progress or (lambda i, n: None)
+        self._snapshot = snapshot or (lambda: None)
+        self._stop = stop_flag or (lambda: False)
+
+    # -------------------------------------------------- 工具
+    def _stopped(self) -> bool:
+        v = self._stop
+        return v() if callable(v) else bool(getattr(v, "stop", False))
+
+    def log(self, msg: str):
+        self._log(msg)
+
+    # -------------------------------------------------- 主入口
+    def run(self, wf: dict):
+        log = self.log
+        ws = self.ws
+        log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
+
+        # 1) 网格（grid_rebuild=False 表示沿用当前网格，仅在无网格时报错）
+        if wf.get("grid") and wf.get("grid_rebuild", True):
+            self._build_grid(wf["grid"])
+        elif wf.get("grid") and not ws.has_grid:
+            raise RuntimeError("工作流要求沿用当前网格，但当前没有任何网格")
+        if not ws.has_grid:
+            raise RuntimeError("尚无网格：请先新建网格或在工作流中包含 grid 配置")
+        if wf.get("boundary"):
+            self._apply_boundary(wf["boundary"])
+        if wf.get("terrain"):
+            ws.init_terrain(**wf["terrain"])
+
+        # 2) 解析步骤
+        steps = wf.get("steps", [])
+        time_cfg = wf.get("time", {})
+        dt = float(time_cfg.get("dt", 1.0))
+        n_steps = int(time_cfg.get("n_steps", 1))
+        refresh_every = max(1, int(time_cfg.get("refresh_every", 10)))
+        history_every = max(1, int(time_cfg.get("history_every", 5)))
+
+        start_steps = [s for s in steps if s.get("when") == "once_at_start"]
+        loop_steps = [s for s in steps if s.get("when", "every_step") == "every_step"]
+        end_steps = [s for s in steps if s.get("when") == "once_at_end"]
+        log(tr("步骤: 启动前 {0} | 循环 {1} | 结束 {2} | dt={3} x {4} 步").format(
+            len(start_steps), len(loop_steps), len(end_steps), dt, n_steps))
+
+        comps = {}
+        try:
+            # 3) 注入时间步长（once_at_start 插件也要按 dt 施加通量）
+            ws.dt = dt
+            # 运行状态属于"本次运行"：历史曲线与完成步数都不能跨多次运行叠加，
+            # 否则演化历史的时间轴会回跳、报告步数也会算错
+            ws.history.clear()
+            ws.steps_done = 0
+            ws.interrupted = False
+            # 4) 启动前一次性步骤
+            for s in start_steps:
+                self._exec_step(s, comps, dt=dt)
+
+            # 5) 时间循环
+            for i in range(n_steps):
+                if self._stopped():
+                    log(tr("用户中断于第 {0}/{1} 步").format(i + 1, n_steps))
+                    ws.interrupted = True
+                    break
+                for s in loop_steps:
+                    self._exec_step(s, comps, dt=dt)
+                ws.steps_done = i + 1
+                if (i + 1) % history_every == 0 or i == 0:
+                    z = ws.at_node["topographic__elevation"]
+                    ws.history.append((i + 1, float(np.nanmean(z)), float(np.nanmax(z))))
+                if (i + 1) % refresh_every == 0 or i == n_steps - 1:
+                    self._snapshot()
+                self._progress(i + 1, n_steps)
+
+            # 5) 结束分析步骤（同样传入 dt：结束时机上的求解类组件也要按 dt 推进）
+            for s in end_steps:
+                self._exec_step(s, comps, dt=dt)
+
+            if not self._stopped():
+                log(tr("=== 运行完成 ==="))
+            z = ws.at_node["topographic__elevation"]
+            log(tr("最终地形: 平均 {0} m, 最大 {1} m").format(f"{np.nanmean(z):.1f}", f"{np.nanmax(z):.1f}"))
+            self._snapshot()
+
+            # 6) 导出（中断也导出：长任务被停止时更需要保留已达成的中间结果）
+            if wf.get("outputs", {}).get("dir"):
+                self._export(wf["outputs"])
+        except Exception:
+            log(tr("运行出错") + ":\n" + traceback.format_exc())
+            raise
+        finally:
+            ws.components = comps
+
+    # -------------------------------------------------- 网格与边界
+    def _build_grid(self, cfg: dict):
+        gtype = cfg.get("type", "RasterModelGrid")
+        params = dict(cfg.get("params", {}))
+        if cfg.get("dem_file"):
+            self._load_dem(cfg["dem_file"])
+            return
+        # VoronoiDelaunayGrid：由 GUI 传来的抽象参数展开为随机 x/y 点位
+        if "__npts__" in params:
+            import numpy as _np
+            npts = int(params.pop("__npts__", 400))
+            width = float(params.pop("__width__", 10000.0))
+            height = float(params.pop("__height__", 8000.0))
+            rng = _np.random.default_rng(42)
+            params["x"] = rng.uniform(0, width, npts)
+            params["y"] = rng.uniform(0, height, npts)
+        cls = _GRID_CLASSES.get(gtype)
+        if cls is None:
+            raise ValueError(f"未知网格类型: {gtype}")
+        grid = cls(**params)
+        grid.add_zeros("topographic__elevation", at="node")
+        shown = {k: (f"<数组 {len(v)} 点>" if isinstance(v, np.ndarray) else v)
+                 for k, v in params.items()}
+        self.ws.set_grid(grid, {"type": gtype, "params": shown})
+        self.log(tr("新网格: {0}, 节点数 {1}").format(gtype, grid.number_of_nodes))
+
+    def _load_dem(self, path: str):
+        with open(path) as f:
+            grid = esri_ascii.load(f, at="node", name="topographic__elevation")
+        self.ws.set_grid(grid, {"type": "RasterModelGrid(来自DEM)", "params": {"dem": path}})
+        self.log(tr("DEM 已导入: {0} ({1} 节点)").format(path, grid.number_of_nodes))
+
+    def _apply_boundary(self, mode: str):
+        g = self.ws.grid
+        if not hasattr(g, "status_at_node") or not hasattr(g, "set_closed_boundaries_at_grid_edges"):
+            self.log("  (skip boundary: unsupported grid)")
+            return
+        if mode == "all_closed":
+            g.set_closed_boundaries_at_grid_edges(True, True, True, True)
+            self.log(tr("边界: 四周封闭"))
+        elif mode == "south_open":
+            g.set_closed_boundaries_at_grid_edges(True, True, True, True)
+            bottom = np.where(g.node_y == g.node_y.min())[0]
+            g.status_at_node[bottom] = g.BC_NODE_IS_FIXED_VALUE   # 固定值=开放出水口
+            self.log(tr("边界: 四周封闭 + 南缘开放出水口（教程默认）"))
+
+    # -------------------------------------------------- 步骤执行
+    def _exec_step(self, step: dict, comps: dict, dt: float = None):
+        kind = step.get("kind", "component")
+        if kind == "component":
+            self._run_component(step, comps, dt)
+        elif kind == "plugin":
+            self._run_plugin(step)
+
+    def _run_component(self, step: dict, comps: dict, dt: float = None):
+        name = step["component"]
+        sid = step.get("id", name)
+        params = step.get("params", {}) or {}
+        cls = getattr(llc, name, None)
+        if cls is None:
+            raise ValueError(f"landlab 中找不到组件: {name}")
+
+        # 自动补必填输入字段（_info 的键即字段名）
+        for fname, finfo in getattr(cls, "_info", {}).items():
+            if ("in" in finfo.get("intent", "") and not finfo.get("optional", False)
+                    and finfo.get("mapping", "node") == "node"):
+                dtype = finfo.get("dtype", float)
+                if fname not in self.ws.grid.at_node:
+                    self.ws.ensure_field(fname, "node", dtype)
+
+        if sid not in comps:
+            comps[sid] = cls(self.ws.grid, **params)
+            self.log(tr("实例化组件 {0} (id={1})").format(name, sid))
+
+        style = step.get("step_style") or self._detect_style(cls)
+        comp = comps[sid]
+        if style == "analysis":
+            self._run_analysis(comp, name)
+            return
+        method = getattr(comp, style, None)
+        if method is None:
+            raise RuntimeError(f"组件 {name} 缺少步进方法 {style}")
+        # 有的组件 run_one_step() 不接收 dt（如 PriorityFloodFlowRouter），按签名分派；
+        # dt=None（once_at_start/end 的求解类组件）时不强传，避免 None 进入数值计算
+        import inspect as _inspect
+        try:
+            sig = _inspect.signature(method)
+            accepts_dt = ("dt" in sig.parameters or
+                          any(p.kind == p.VAR_POSITIONAL for p in sig.parameters.values()))
+        except (TypeError, ValueError):
+            accepts_dt = True
+        if not accepts_dt or dt is None:
+            method()
+        else:
+            method(dt)
+
+    @staticmethod
+    def _detect_style(cls) -> str:
+        import inspect
+        if hasattr(cls, "run_one_step_basic"):
+            return "run_one_step_basic"
+        if hasattr(cls, "run_one_step"):
+            return "run_one_step"
+        if hasattr(cls, "update"):
+            return "update"
+        return "analysis"
+
+    def _run_analysis(self, comp, name: str):
+        """分析类组件：依次尝试 calculate_* / calc_* 方法，再回退 run_one_step()。"""
+        candidates = [m for m in dir(comp) if m.startswith(("calculate_", "calc_"))]
+        for m in candidates:
+            try:
+                getattr(comp, m)()
+                self.log(tr("分析完成: {0}.{1}()").format(name, m))
+                return
+            except TypeError:
+                continue          # 需要参数的方法跳过
+            except Exception as e:
+                self.log(tr("分析 {0}.{1}() 失败: {2}").format(name, m, e))
+                return
+        if hasattr(comp, "run_one_step"):        # 如 ChannelProfiler
+            try:
+                comp.run_one_step()
+                self.log(tr("分析完成: {0}.run_one_step()").format(name))
+                return
+            except Exception as e:
+                self.log(tr("分析 {0} 运行失败: {1}").format(name, e))
+                return
+        self.log(tr("分析组件 {0} 无可用计算方法，已实例化（输出字段可直接查看）").format(name))
+
+    def _run_plugin(self, step: dict):
+        pname = step["plugin"]
+        spec = self.plugins.get(pname)
+        if spec is None:
+            raise ValueError(f"找不到插件功能: {pname}（是否忘记重载插件？）")
+        spec.fn(self.ws, step.get("params", {}) or {})
+
+    # -------------------------------------------------- 导出
+    def _export(self, cfg: dict):
+        from .exporter import export_all
+        from .plugin_loader import app_root
+        out_dir = cfg.get("dir", "results")
+        if not os.path.isabs(out_dir):
+            out_dir = os.path.join(app_root(), out_dir)
+        export_all(self.ws.grid, output_dir=out_dir,
+                   dem_formats=cfg.get("formats", ["ascii"]),
+                   river_min_area=cfg.get("river_min_area", 1e5), log=self.log)
+
+
+def sanitize_workflow_params(params: dict, schema_params: list = None) -> dict:
+    """把 GUI 表单收集的参数转成 landlab 可接受的类型（str数字转数字等）。"""
+    out = {}
+    typed = {p["name"]: p.get("type") for p in (schema_params or [])}
+    for k, v in params.items():
+        t = typed.get(k)
+        if t in ("float",) and isinstance(v, str):
+            out[k] = float(v)
+        elif t in ("int",) and isinstance(v, str) and v.strip():
+            out[k] = int(float(v))
+        else:
+            out[k] = v
+    return out
+
+
+def validate_workflow_dependencies(wf: dict, schemas: dict = None) -> list[dict]:
+    """检查工作流步骤之间的字段依赖关系（DAG 拓扑依赖预检）。
+
+    返回依赖缺失列表:
+        [{"step_index": int, "step_id": str, "component": str,
+          "missing_field": str, "field_doc": str, "suggestion": str}]
+    """
+    if schemas is None:
+        from .introspection import scan_all_components
+        schemas = scan_all_components()
+
+    # 倒查：哪个组件可以产生某个字段 -> {field_name: [comp_name, ...]}
+    producers = {}
+    for comp_name, s in schemas.items():
+        for out_f in s.get("output_fields", []):
+            fname = out_f.get("name")
+            if fname:
+                producers.setdefault(fname, []).append(comp_name)
+
+    preferred_producers = {
+        "drainage_area": "PriorityFloodFlowRouter / FlowAccumulator",
+        "flow__receiver_node": "PriorityFloodFlowRouter / FlowAccumulator",
+        "flow__upstream_node_order": "PriorityFloodFlowRouter / FlowAccumulator",
+        "surface_water__discharge": "PriorityFloodFlowRouter / FlowAccumulator",
+        "topographic__steepest_slope": "PriorityFloodFlowRouter / FlowDirectorSteepest",
+        "soil__depth": "ExponentialWeatherer",
+    }
+
+    available = {"topographic__elevation"}
+    issues = []
+
+    for idx, step in enumerate(wf.get("steps", [])):
+        kind = step.get("kind", "component")
+        if kind != "component":
+            continue
+        cname = step.get("component")
+        schema = schemas.get(cname)
+        if not schema:
+            continue
+
+        for inf in schema.get("input_fields", []):
+            if "in" in inf.get("intent", "") and not inf.get("optional", False):
+                fname = inf.get("name")
+                if fname and fname not in available:
+                    sugg = preferred_producers.get(fname)
+                    if not sugg:
+                        cand = producers.get(fname, [])
+                        sugg = ", ".join(cand[:2]) if cand else "相应前置计算组件"
+                    issues.append({
+                        "step_index": idx + 1,
+                        "step_id": step.get("id", cname),
+                        "component": cname,
+                        "missing_field": fname,
+                        "field_doc": inf.get("doc", ""),
+                        "suggestion": sugg,
+                    })
+
+        # 该组件成功执行后产生 output_fields
+        for outf in schema.get("output_fields", []):
+            if "out" in outf.get("intent", ""):
+                available.add(outf.get("name"))
+
+    return issues
+

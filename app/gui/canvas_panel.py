@@ -1,0 +1,597 @@
+"""
+可视化画布：六个标签页 —— 地形 / 面积 / 坡度-面积 / 剖面 / 历史 / 3D地形。
+- 每页带 matplotlib 导航工具栏（缩放/平移/保存/回退）
+- 地形页支持点击查值（显示该节点全部字段）与"取点剖面"（两点任意方向剖面）
+绘图逻辑全部在 app.core.plots（与实验报告共用）。
+"""
+
+from __future__ import annotations
+
+import numpy as np
+
+import matplotlib
+matplotlib.use("QtAgg")
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
+from matplotlib.figure import Figure
+
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QPushButton,
+                               QSlider, QTabWidget, QVBoxLayout, QWidget)
+
+from ..core import plots
+from ..core.i18n import tr
+
+matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei"]
+matplotlib.rcParams["axes.unicode_minus"] = False
+
+
+class _PlotTab(QWidget):
+    """带导航工具栏的单个 matplotlib 标签页。"""
+
+    def __init__(self, title="", xlabel="", ylabel="", toolbar=True, parent=None):
+        super().__init__(parent)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(4)
+        self.fig = Figure(figsize=(5, 4), facecolor="#1a1d24")
+        self.canvas = FigureCanvasQTAgg(self.fig)
+        self.canvas.setStyleSheet("background: #1a1d24;")
+        self.title, self.xlabel, self.ylabel = title, xlabel, ylabel
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_facecolor("#15181e")
+        self.ax.tick_params(colors="#8b949e")
+        for spine in self.ax.spines.values():
+            spine.set_color("#2b303d")
+        self.ax.set_title(title, color="#e6edf3", pad=8, fontdict={"fontweight": 600})
+        self.ax.set_xlabel(xlabel, color="#8b949e")
+        self.ax.set_ylabel(ylabel, color="#8b949e")
+        lay.addWidget(self.canvas, stretch=1)
+        self.toolbar = NavigationToolbar2QT(self.canvas, self) if toolbar else None
+        if self.toolbar is not None:
+            self.toolbar.setStyleSheet("""
+                QToolBar {
+                    background: #1a1d24;
+                    border: 1px solid #2b303d;
+                    border-radius: 6px;
+                    padding: 2px 6px;
+                    spacing: 4px;
+                }
+                QToolButton {
+                    background: transparent;
+                    border: none;
+                    border-radius: 4px;
+                    padding: 3px 6px;
+                }
+                QToolButton:hover {
+                    background: #282d38;
+                }
+            """)
+            tb = QHBoxLayout()
+            tb.addWidget(self.toolbar)
+            lay.addLayout(tb)
+
+    def reset_ax(self, projection: str = "2d"):
+        """彻底重建坐标轴。
+
+        ax.clear() 不会移除 colorbar 创建的独立坐标轴，反复刷新会堆积色标、
+        挤压主图 —— 这里用 fig.clf() 一次性解决（工具栏绑定的是 canvas，
+        不受重建影响）。
+        """
+        self.fig.clf()
+        self.fig.set_facecolor("#1a1d24")
+        if projection == "3d":
+            self.ax = self.fig.add_subplot(111, projection="3d")
+            self.ax.set_facecolor("#15181e")
+            self.ax.tick_params(colors="#8b949e")
+            try:
+                self.ax.xaxis.pane.set_facecolor("#15181e")
+                self.ax.yaxis.pane.set_facecolor("#15181e")
+                self.ax.zaxis.pane.set_facecolor("#15181e")
+                self.ax.xaxis.pane.set_edgecolor("#2b303d")
+                self.ax.yaxis.pane.set_edgecolor("#2b303d")
+                self.ax.zaxis.pane.set_edgecolor("#2b303d")
+            except Exception:
+                pass
+        else:
+            self.ax = self.fig.add_subplot(111)
+            self.ax.set_facecolor("#15181e")
+            self.ax.tick_params(colors="#8b949e")
+            for spine in self.ax.spines.values():
+                spine.set_color("#2b303d")
+            self.ax.set_xlabel(self.xlabel, color="#8b949e")
+            self.ax.set_ylabel(self.ylabel, color="#8b949e")
+        try:
+            self.fig.tight_layout()      # 每次渲染排一次（渲染已节流，开销可忽略）
+        except Exception:
+            pass
+
+    def draw(self):
+        from ..core.i18n import tr as _tr
+        self.ax.set_title(_tr(self.title), color="#e6edf3", pad=8, fontdict={"fontweight": 600})
+        self.canvas.draw_idle()
+
+
+class CanvasPanel(QTabWidget):
+    """右侧可视化区。"""
+
+    _TABS_ZH = ["地形", "面积", "坡度-面积", "剖面", "历史", "3D地形"]
+
+    @property
+    def TABS(self):
+        return [tr(t) for t in self._TABS_ZH]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._ws = None
+        self.tab_terrain = _PlotTab(tr("地形高程 (m)"))
+        self.tab_area = _PlotTab(tr("汇水面积 log10(m²)"))
+        self.tab_slope_area = _PlotTab(tr("坡度-面积"), tr("汇水面积 A (m²)"), tr("坡度 S"))
+        self.tab_profile = _PlotTab(tr("河道纵剖面"), tr("沿程距离 (m)"), tr("高程 (m)"))
+        self.tab_history = _PlotTab(tr("演化历史"), tr("步数"), tr("高程 (m)"))
+        self.tab_3d = _PlotTab(tr("3D地形"), tr("X (m)"), tr("Y (m)"))
+        self.tab_3d.ax.remove()
+        self.tab_3d.ax = self.tab_3d.fig.add_subplot(111, projection="3d")
+        self.tab_3d.ax.set_facecolor("#15181e")
+
+        for i, t in enumerate([self.tab_terrain, self.tab_area, self.tab_slope_area,
+                               self.tab_profile, self.tab_history, self.tab_3d]):
+            self.addTab(t, self.TABS[i])
+
+        # ---- 地形页辅助条：取点剖面 + 字段查看器 + 查值显示 ----
+        bar = QHBoxLayout()
+        bar.setContentsMargins(8, 4, 8, 4)
+        bar.setSpacing(10)
+        self.btn_pick = QPushButton(tr("取点剖面"))
+        self.btn_pick.setCheckable(True)
+        self.btn_pick.setToolTip(tr("勾选后在地形图上点两个点，即画出任意方向的地形剖面"))
+        self.btn_pick.setStyleSheet("""
+            QPushButton {
+                background: #1c222c;
+                color: #e6edf3;
+                border: 1px solid #2e3646;
+                border-radius: 6px;
+                padding: 4px 12px;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background: #252d3a;
+                border-color: #388bfd;
+            }
+            QPushButton:checked {
+                background: #162a45;
+                border-color: #388bfd;
+                color: #58a6ff;
+                font-weight: 600;
+            }
+        """)
+        self.btn_pick.toggled.connect(self._toggle_pick)
+        bar.addWidget(self.btn_pick)
+        self.pick_hint = QLabel("")
+        self.pick_hint.setStyleSheet("color:#58a6ff; font-weight: 500;")
+        bar.addWidget(self.pick_hint)
+        bar.addStretch()
+        lbl_field = QLabel(tr("查看字段:"))
+        lbl_field.setStyleSheet("color: #8b949e; font-weight: 500;")
+        bar.addWidget(lbl_field)
+        self.field_combo = QComboBox()
+        self.field_combo.setMinimumWidth(190)
+        self.field_combo.addItem("topographic__elevation")
+        self.field_combo.setToolTip(tr("切换地形页显示的字段（运行越多样组件，可选字段越多）"))
+        self.field_combo.currentTextChanged.connect(self._on_view_field_changed)
+        bar.addWidget(self.field_combo)
+        wrap = QWidget()
+        wrap.setStyleSheet("background: #161b23; border: 1px solid #262c37; border-radius: 6px; margin: 2px;")
+        wrap.setLayout(bar)
+        self.tab_terrain.layout().insertWidget(1, wrap)
+
+        # ---- 回放条：模拟结束后拖动滑块逐帧回放演化过程 ----
+        rbar = QHBoxLayout()
+        rbar.setContentsMargins(8, 4, 8, 4)
+        rbar.setSpacing(10)
+        self.btn_play = QPushButton(tr("时间轴回放"))
+        self.btn_play.setCheckable(True)
+        self.btn_play.setEnabled(False)
+        self.btn_play.setToolTip(tr("按时间轴回放本次模拟的演化过程"))
+        self.btn_play.setStyleSheet("""
+            QPushButton {
+                background: #1c222c;
+                color: #e6edf3;
+                border: 1px solid #2e3646;
+                border-radius: 6px;
+                padding: 4px 14px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #252d3a;
+                border-color: #10b981;
+            }
+            QPushButton:checked {
+                background: #064e3b;
+                border-color: #10b981;
+                color: #ffffff;
+            }
+            QPushButton:disabled {
+                background: #141820;
+                color: #4b5563;
+                border-color: #222834;
+            }
+        """)
+        self.btn_play.toggled.connect(self._toggle_replay)
+        rbar.addWidget(self.btn_play)
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setEnabled(False)
+        self.slider.setToolTip(tr("拖动查看不同时刻的地形"))
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 6px;
+                background: #10141b;
+                border-radius: 3px;
+                border: 1px solid #262c37;
+            }
+            QSlider::sub-page:horizontal {
+                background: #2563eb;
+                border-radius: 3px;
+            }
+            QSlider::handle:horizontal {
+                background: #58a6ff;
+                border: 2px solid #ffffff;
+                width: 14px;
+                margin-top: -5px;
+                margin-bottom: -5px;
+                border-radius: 7px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #79b8ff;
+            }
+        """)
+        self.slider.valueChanged.connect(self._on_slider)
+        rbar.addWidget(self.slider, stretch=1)
+        self.frame_label = QLabel("")
+        self.frame_label.setStyleSheet("color:#8b949e; font-size: 11px; font-weight: 500;")
+        rbar.addWidget(self.frame_label)
+        wrap_r = QWidget()
+        wrap_r.setStyleSheet("background: #161b23; border: 1px solid #262c37; border-radius: 6px; margin: 2px;")
+        wrap_r.setLayout(rbar)
+        self.tab_terrain.layout().insertWidget(2, wrap_r)
+
+        self.info_label = QLabel(tr("模拟完成后在此交互查看图表 · 单击画布查值 · 滚轮缩放与拖拽平移"))
+        self.info_label.setStyleSheet("color:#656d78; font-size: 11px; padding: 2px 6px;")
+        self.info_label.setWordWrap(True)
+        wrap2 = QWidget()
+        v = QVBoxLayout(wrap2)
+        v.setContentsMargins(4, 0, 4, 2)
+        v.addWidget(self.info_label)
+        self.tab_terrain.layout().insertWidget(3, wrap2)
+
+        # ---- 事件 ----
+        self._picking = False
+        self._pick_points = []
+        self._custom_profiles = []          # [(label, dists, elevs)]
+        self._dirty = set(range(6))         # 待刷新标签页（性能：只画可见页）
+        self.currentChanged.connect(self._on_tab_changed)
+        for tab in (self.tab_terrain, self.tab_area):
+            tab.canvas.mpl_connect("button_press_event", self._on_click)
+
+    # ================================================= 更新
+    # 性能模型：update_all 只渲染"当前可见的标签页"，其余标记待刷新，
+    # 切到时按需渲染（_on_tab_changed）。6 视图全部重画是卡顿根源。
+    def update_all(self, ws, note: str = ""):
+        self._ws = ws
+        if not ws.has_grid:
+            return
+        if not ("topographic__elevation" in ws.at_node):
+            return
+        self._refresh_field_combo()
+        idx = self.currentIndex()
+        self._render_tab(idx)
+        for i in range(self.count()):
+            if i != idx:
+                self._dirty.add(i)
+
+    def _render_tab(self, idx: int):
+        """渲染指定标签页（只画看得到的那个）。渲染异常不影响界面运行。"""
+        self._dirty.discard(idx)
+        ws = self._ws
+        if ws is None or not ws.has_grid:
+            return
+        if not ("topographic__elevation" in ws.at_node):
+            return
+        try:
+            self._render_tab_inner(idx)
+        except Exception as e:
+            import traceback
+            tab = self.widget(idx)
+            if hasattr(tab, "ax"):
+                tab.ax.clear()
+                tab.ax.text(0.5, 0.5, tr("渲染出错") + f": {type(e).__name__}",
+                            transform=tab.ax.transAxes, ha="center", va="center",
+                            color="orange")
+                tab.draw()
+            print("[画布] 渲染异常:\n" + traceback.format_exc())
+
+    def _render_tab_inner(self, idx: int):
+        ws = self._ws
+        if ws is None or not ws.has_grid:
+            return
+        if not ("topographic__elevation" in ws.at_node):
+            return
+        grid = ws.grid
+        z = ws.at_node["topographic__elevation"]
+        if idx == 0:
+            self.tab_terrain.reset_ax()
+            ax = self.tab_terrain.ax
+            # 字段查看器：显示下拉框选中的字段（缺数据时回退高程）
+            field = self.field_combo.currentText() or "topographic__elevation"
+            shown, fallback = z, False
+            if field != "topographic__elevation" and field in ws.at_node:
+                shown = ws.at_node[field]
+            elif field != "topographic__elevation":
+                fallback = True
+            plots.draw_field(ax, grid, shown, colorbar_fig=self.tab_terrain.fig)
+            if fallback:
+                ax.text(0.5, 0.02, tr("该字段尚无数据（先运行产生它的组件）"),
+                        transform=ax.transAxes, ha="center", color="orange")
+            self._draw_custom_profile_lines(ax, grid)
+            self.tab_terrain.draw()
+        elif idx == 1:
+            self.tab_area.reset_ax()
+            ax = self.tab_area.ax
+            if "drainage_area" in ws.at_node:
+                plots.draw_field(ax, grid, np.log10(np.maximum(ws.at_node["drainage_area"], 1.0)),
+                                 cmap="viridis", colorbar_fig=self.tab_area.fig)
+            else:
+                ax.text(0.5, 0.5, tr("运行含汇流组件后显示"), transform=ax.transAxes,
+                        ha="center", va="center", color="#8b949e")
+            self.tab_area.draw()
+        elif idx == 2:
+            self.tab_slope_area.ax.clear()
+            self.tab_slope_area.ax.set_facecolor("#15181e")
+            self.tab_slope_area.ax.tick_params(colors="#8b949e")
+            for spine in self.tab_slope_area.ax.spines.values():
+                spine.set_color("#2b303d")
+            plots.draw_slope_area(self.tab_slope_area.ax, ws)
+            self.tab_slope_area.draw()
+        elif idx == 3:
+            self._render_profile_tab()
+        elif idx == 4:
+            self.tab_history.ax.clear()
+            self.tab_history.ax.set_facecolor("#15181e")
+            self.tab_history.ax.tick_params(colors="#8b949e")
+            for spine in self.tab_history.ax.spines.values():
+                spine.set_color("#2b303d")
+            plots.draw_history(self.tab_history.ax, ws)
+            self.tab_history.draw()
+        elif idx == 5:
+            self._render_3d()
+
+    def _on_tab_changed(self, idx):
+        if idx in self._dirty:
+            self._render_tab(idx)
+
+    # ================================================= 字段查看器
+    _FIELD_BLACKLIST = ("receiver_node", "upstream_node_order",
+                        "link_to_receiver", "proportions", "adjacent")
+
+    @classmethod
+    def _plottable_fields(cls, ws):
+        """可绘制字段：一维数值数组且长度等于节点数；排除路由编号类内部数据。"""
+        out = []
+        if ws is None or not ws.has_grid:
+            return out
+        n = ws.grid.number_of_nodes
+        for name in ws.at_node.keys():
+            if any(bad in name for bad in cls._FIELD_BLACKLIST):
+                continue
+            arr = ws.at_node[name]
+            if (getattr(arr, "ndim", 0) == 1 and arr.shape[0] == n
+                    and arr.dtype.kind in "fiu" and np.issubdtype(arr.dtype, np.number)):
+                out.append(name)
+        if "topographic__elevation" in out:      # 高程排最前
+            out.remove("topographic__elevation")
+            out.insert(0, "topographic__elevation")
+        return out
+
+    def _refresh_field_combo(self):
+        """用网格现有字段刷新下拉（保留用户选择）。"""
+        fields = self._plottable_fields(self._ws)
+        cur = self.field_combo.currentText() or "topographic__elevation"
+        if fields and [self.field_combo.itemText(i) for i in range(self.field_combo.count())] != fields:
+            self.field_combo.blockSignals(True)
+            self.field_combo.clear()
+            self.field_combo.addItems(fields)
+            self.field_combo.blockSignals(False)
+        if cur in fields:
+            self.field_combo.setCurrentText(cur)
+
+    def _on_view_field_changed(self, field):
+        if self._ws and self._ws.has_grid:
+            self._render_tab(0)
+
+    # ================================================= 时间轴回放
+    def set_frames_provider(self, fn):
+        """注入帧列表访问器：[(z2d, vmin, vmax, title), ...]"""
+        self._frames_provider = fn
+        self.update_replay_range(len(fn() or []))
+
+    def update_replay_range(self, n: int):
+        self.slider.blockSignals(True)
+        self.slider.setRange(0, max(0, n - 1))
+        self.slider.setEnabled(n >= 2)
+        self.btn_play.setEnabled(n >= 2)
+        if n < 2:
+            self.slider.setValue(0)
+            self.btn_play.setChecked(False)
+            self.frame_label.setText("")
+        self.slider.blockSignals(False)
+
+    def _toggle_replay(self, on):
+        if on:
+            frames = self._frames_provider() or []
+            if len(frames) < 2:
+                self.btn_play.setChecked(False)
+                return
+            if self.slider.value() >= len(frames) - 1:
+                self.slider.setValue(0)          # 从头播
+            self._replay_timer.start()
+        else:
+            self._replay_timer.stop()
+
+    def _replay_tick(self):
+        frames = self._frames_provider() or []
+        nxt = self.slider.value() + 1
+        if nxt >= len(frames):
+            self.btn_play.setChecked(False)      # 播完自动停
+            self._replay_timer.stop()
+            return
+        self.slider.setValue(nxt)
+
+    def _on_slider(self, i):
+        frames = self._frames_provider() or []
+        if not (0 <= i < len(frames)):
+            return
+        try:
+            self._on_slider_inner(i)
+        except Exception as e:
+            self.tab_terrain.ax.clear()
+            self.tab_terrain.ax.text(0.5, 0.5, tr("渲染出错") + f": {type(e).__name__}",
+                                     transform=self.tab_terrain.ax.transAxes,
+                                     ha="center", va="center", color="orange")
+            self.tab_terrain.draw()
+
+    def _on_slider_inner(self, i):
+        frames = self._frames_provider() or []
+        if not (0 <= i < len(frames)):
+            return
+        z, vmin, vmax, title = frames[i]
+        tab = self.tab_terrain
+        tab.reset_ax()
+        shape = getattr(self._ws.grid, "shape", None) if (self._ws and self._ws.has_grid) else None
+        compatible = (shape is not None and len(shape) == 2
+                      and shape[0] * shape[1] == int(z.size))
+        if not compatible:
+            # 网格已重建为不同形状：旧帧无法映射，提示而不是崩溃
+            tab.ax.text(0.5, 0.5, tr("回放帧与当前网格形状不符（网格已重建）"),
+                        transform=tab.ax.transAxes, ha="center", va="center", color="orange")
+            tab.draw()
+            return
+        tab.ax.imshow(np.asarray(z, float).reshape(shape), origin="lower",
+                      cmap="terrain", vmin=vmin, vmax=vmax, interpolation="nearest")
+        tab.ax.set_title(f"{title} ｜ {tr('高程 (m)')} {vmin:.0f}~{vmax:.0f}")
+        tab.draw()
+
+    def _render_profile_tab(self):
+        ax = self.tab_profile.ax
+        ax.clear()
+        ax.set_facecolor("#15181e")
+        ax.tick_params(colors="#8b949e")
+        for spine in ax.spines.values():
+            spine.set_color("#2b303d")
+        plots.draw_river_profile(ax, self._ws)
+        for label, dists, elevs in self._custom_profiles:
+            ax.plot(dists, elevs, lw=2.0, color="#f59e0b", label=label)
+        if self._custom_profiles:
+            ax.legend(facecolor="#212530", edgecolor="#373e4d", labelcolor="#e6edf3")
+        self.tab_profile.draw()
+
+    def _render_3d(self, z=None):
+        ws = self._ws
+        if not ws or not ws.has_grid:
+            return
+        tab = self.tab_3d
+        tab.reset_ax(projection="3d")
+        z = z if z is not None else (
+                ws.at_node["topographic__elevation"]
+                if "topographic__elevation" in ws.at_node else None)
+        if z is None:
+            tab.draw()
+            return
+        plots.draw_3d(tab.ax, ws.grid, z)
+        tab.ax.set_xlabel("X (m)", color="#8b949e")
+        tab.ax.set_ylabel("Y (m)", color="#8b949e")
+        tab.ax.set_zlabel(tr("高程 (m)"), color="#8b949e")
+        tab.draw()
+
+    def refresh_3d_only(self):
+        self._dirty.discard(5)
+        self._render_tab(5)
+
+    # ================================================= 点击查值
+    def _on_click(self, event):
+        if event.inaxes is None or event.xdata is None or self._ws is None:
+            return
+        if getattr(event.canvas, "toolbar", None) is not None and event.canvas.toolbar.mode:
+            return                        # 平移/缩放模式下不响应
+        ws = self._ws
+        if not ws.has_grid:
+            return
+        x, y = float(event.xdata), float(event.ydata)
+        g = ws.grid
+        if self._picking and event.inaxes is self.tab_terrain.ax:
+            self._handle_pick(x, y, g)
+            return
+        try:
+            node = g.find_nearest_node((x, y))
+        except Exception:
+            node = int(np.argmin((g.x_of_node - x) ** 2 + (g.y_of_node - y) ** 2))
+        node = int(node)
+        parts = [tr("节点 {0}  ({1}, {2})").format(node, f"{x:.0f}", f"{y:.0f}")]
+        shown = 0
+        for name, arr in ws.at_node.items():
+            if shown >= 8:
+                parts.append("...")
+                break
+            try:
+                v = float(arr[node])
+                parts.append(f"{name}={v:.4g}")
+                shown += 1
+            except Exception:
+                continue
+        self.info_label.setText("[采样数值] " + "  |  ".join(parts))
+
+    # ================================================= 取点剖面
+    def _toggle_pick(self, on):
+        self._picking = on
+        self._pick_points.clear()
+        self.pick_hint.setText(tr("点击第 1 个点...") if on else "")
+
+    def _handle_pick(self, x, y, grid):
+        self._pick_points.append((x, y))
+        if len(self._pick_points) == 1:
+            self.pick_hint.setText(tr("已选 A({0},{1})，点击第 2 个点...").format(f"{x:.0f}", f"{y:.0f}"))
+            return
+        p0, p1 = self._pick_points
+        self._pick_points.clear()
+        z = (self._ws.at_node["topographic__elevation"]
+             if "topographic__elevation" in self._ws.at_node else None)
+        if z is None:
+            return
+        dists, elevs = plots.sample_profile(grid, z, p0, p1)
+        n = len(self._custom_profiles) + 1
+        label = tr("剖面{n}: A-B").format(n=n)
+        self._custom_profiles.append((label, dists, elevs))
+        if len(self._custom_profiles) > 5:
+            self._custom_profiles.pop(0)
+        self.tab_profile.ax.clear()
+        plots.draw_river_profile(self.tab_profile.ax, self._ws)
+        for lb, d, e in self._custom_profiles:
+            self.tab_profile.ax.plot(d, e, lw=2.0, color="#f5c542", label=lb)
+        self.tab_profile.ax.legend()
+        self.tab_profile.ax.set_title(tr("河道纵剖面") + " + " + tr("剖面"))
+        self.tab_profile.draw()
+        # 地形图上标记线段
+        ax = self.tab_terrain.ax
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], "-", color="#f5c542", lw=1.5, alpha=0.9)
+        ax.plot(*zip(p0, p1), "o", color="#f5c542", ms=4)
+        self.tab_terrain.draw()
+        self.pick_hint.setText(tr("剖面已画出（黄线），共 {0} 个采样点").format(len(dists)))
+        self.setCurrentWidget(self.tab_profile)
+
+    def _draw_custom_profile_lines(self, ax, grid):
+        """重绘地形时恢复已取的剖面线段（仅保留最新3条避免混乱）。"""
+        # 简化：重绘后不保留旧线段（坐标已随视图变化），只清空记录
+        if self._custom_profiles:
+            pass    # 保留数据供剖面标签页显示
+
+    def clear_custom_profiles(self):
+        self._custom_profiles.clear()
+        self._render_profile_tab()

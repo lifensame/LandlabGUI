@@ -1,0 +1,808 @@
+"""
+界面语言（i18n）：中文/English 全界面双语。
+==============================================
+- 组件目录: COMPONENT_ZH / PARAM_ZH (zh_catalog)，87 组件中文名+说明+常用参数释义
+- 界面文字: tr() 查表，键=中文原文，英文模式返回英文；缺翻译回退中文
+- 语言状态存 QSettings("LandlabGUI","main") 的 "lang"；切换后重启应用完全生效
+"""
+
+from __future__ import annotations
+
+from .zh_catalog import COMPONENT_ZH, PARAM_ZH
+
+_lang = "zh"          # "zh" | "en"
+
+
+def set_lang(lang: str):
+    global _lang
+    _lang = "zh" if lang == "zh" else "en"
+
+
+def get_lang() -> str:
+    return _lang
+
+
+def is_zh() -> bool:
+    return _lang == "zh"
+
+
+# ============================================================ 界面文字表
+# 键 = 中文原文；en = 英文显示。翻译缺失时回退中文原文。
+_STR_EN = {
+    # ---- 通用 ----
+    "确定": "OK", "取消": "Cancel", "关闭": "Close", "保存": "Save", "打开": "Open",
+    "删除": "Delete", "清空": "Clear", "上移": "Move Up", "下移": "Move Down",
+    "浏览...": "Browse...", "搜索": "Search", "提示": "Info", "错误": "Error",
+    "忙碌": "Busy", "就绪 ": "Ready ", " 运行中... ": " Running... ",
+    "（可选）": "(optional)", "组件": "Component", "插件": "Plugin",
+    "每步": "Every step", "开始一次": "Once at start", "结束一次": "Once at end",
+    # ---- 主窗口 ----
+    "Landlab 地貌模拟工作台": "Landlab Geomorphology Workbench",
+    "网格(&G)": "&Grid",
+    "新建网格 / 导入DEM...": "New Grid / Import DEM...",
+    "从在线地图下载真实DEM...": "Download Real DEM (online)...",
+    "🌐 从在线地图下载真实DEM...": "Download Real DEM (online)...",
+    "按地名或经纬度范围下载全球真实地形（SRTM/Copernicus，免密钥）":
+        "Download real global terrain by place name or lat/lon box (SRTM/Copernicus, key-free)",
+    "导出当前地形...": "Export Current Terrain...",
+    "网格信息": "Grid Info",
+    "文件(&F)": "&File",
+    "打开工作流...": "Open Workflow...",
+    "保存工作流...": "Save Workflow...",
+    "最近打开": "Recent Files",
+    "运行(&R)": "&Run",
+    "运行工作流 (F5)": "Run Workflow (F5)",
+    "停止模拟": "Stop Simulation",
+    "开始运行工作流 (F5)": "Run Workflow (F5)",
+    "▶ 运行工作流": "Run Workflow",
+    "■ 停止": "Stop",
+    "停止": "Stop",
+    "清空全部": "Clear All",
+    "编辑参数": "Edit Parameters",
+    "取点剖面": "Profile Sampling",
+    "时间轴回放": "Timeline Replay",
+    "系统运行日志": "System Run Log",
+    "搜索组件、插件或算法...": "Search components, plugins or algorithms...",
+    "工具(&T)": "&Tools",
+    "参数扫描批量实验...": "Parameter Sweep...",
+    "生成实验报告...": "Generate Experiment Report...",
+    "导出演化动画...": "Export Evolution Animation...",
+    "插件(&P)": "&Plugins",
+    "重载插件": "Reload Plugins",
+    "打开插件文件夹": "Open Plugins Folder",
+    "帮助(&H)": "&Help",
+    "新手引导": "Getting Started",
+    "插件开发指南": "Plugin Developer Guide",
+    "关于": "About",
+    "检查更新...": "Check for Updates...",
+    "检查更新": "Check for Updates",
+    "正在检查更新...": "Checking for updates...",
+    "发现新版本可用": "New Version Available",
+    "当前已是最新版本": "You're up to date",
+    "前往 GitHub 下载": "Download on GitHub",
+    "复制下载链接": "Copy Download Link",
+    "已复制下载链接": "Download link copied",
+    "稍后再说": "Later",
+    "查看版本历史": "View Release History",
+    "发布日期: ": "Release Date: ",
+    "绿色包大小: ": "Package Size: ",
+    "组件显示语言 / Language": "Component language / 语言",
+    "🌐 组件显示语言 / Language": "Component language / 语言",
+    "中文（组件中文名+中文说明）": "中文 (Chinese names & docs)",
+    "AI 参数助手...": "AI Assistant...",
+    "🤖 AI 参数助手...": "AI Assistant...",
+    "生成工作流": "Generate Workflow",
+    "下载并建网格": "Download & Build Grid",
+    "组件与预设": "Components & Presets",
+    "控制台": "Console",
+    "工作流": "Workflow",
+    "代码编辑器": "Code Editor",
+    "组件库": "Components",
+    "场景预设": "Presets",
+    "运行历史": "Run History",
+    "组件库（双击添加到工作流）": "Components (double-click to add to workflow)",
+    "🔍 搜索组件 / 插件": "🔍 Search components / plugins",
+    "双击载入预设，点运行即跑（自动建网格）":
+        "Double-click to load a preset; ▶ Run builds the grid automatically",
+    "Landlab 地貌模拟工作台已启动（深色主题）":
+        "Landlab Workbench started (dark theme)",
+    "快速上手: 双击左下【快速测试】预设 → 点 ▶ 运行；不熟悉可看 菜单[帮助→新手引导]":
+        "Quick start: double-click the 'Quick Test' preset → ▶ Run; see Help → Getting Started",
+    "已切换到中文显示": "Switched to Chinese display",
+    "Switched to English display": "已切换到英文显示",
+    "（参数表单的中文提示将在下次打开时生效）":
+        "(Parameter form hints take effect when reopened)",
+    "有任务正在后台运行，请等待完成": "A background task is running; please wait",
+    "有任务正在后台运行，请等待或停止": "A background task is running; wait or stop it",
+    "有任务仍在后台运行，确定退出？": "A background task is still running. Quit anyway?",
+    "正在运行": "Running",
+    "缺少网格": "No Grid",
+    "请先 菜单[网格]->新建网格，或载入预设（运行时自动建网格）":
+        "Create a grid first (menu Grid), or load a preset (grid is built on run)",
+    "尚无网格": "No grid yet",
+    "请先创建网格": "Create a grid first",
+    "请先运行一次模拟": "Run a simulation first",
+    "请至少选择一种格式或勾选河网导出": "Pick at least one format or enable river export",
+    "尚未配置网格 —— 请 菜单[网格]->新建网格 或载入预设":
+        "No grid configured — menu Grid→New Grid, or load a preset",
+    "（沿用当前网格）": "(use current grid)",
+    "运行结束": "Run finished", "运行失败": "Run failed",
+    "已请求停止，等待当前步完成...": "Stop requested; waiting for current step...",
+    "导出完成": "Export finished", "导出失败": "Export failed",
+    "网格 {0} 节点": "Grid: {0} nodes",
+    "真实DEM {0}×{1} 格": "Real DEM {0}×{1} cells",
+    # ---- 工作流面板 ----
+    "网格来源": "Grid Source",
+    "运行时按下方配置重建网格": "Rebuild the grid from the config below on each run",
+    "勾选后每次运行都会新建网格（预设场景用）；不勾选则沿用当前网格，可反复运行累积演化。":
+        "Each run creates a fresh grid (for presets). Unchecked: reuse the current grid so runs accumulate evolution.",
+    "时间循环": "Time Loop",
+    "时间步长 dt (yr)": "Time step dt (yr)",
+    "总步数": "Number of steps",
+    "画面刷新间隔(步)": "Refresh interval (steps)",
+    "运行后导出（可选）": "Export after run (optional)",
+    "模拟结束后自动导出": "Auto export after the simulation ends",
+    "输出目录": "Output directory",
+    "DEM格式": "DEM formats",
+    "ASCII(.asc)": "ASCII (.asc)",
+    "NetCDF(.nc)": "NetCDF (.nc)",
+    "VTK(.vtk)": "VTK (.vtk)",
+    "OBJ(.obj)": "OBJ (.obj)",
+    "GeoTIFF(.tif) — 需 rasterio": "GeoTIFF (.tif) — needs rasterio",
+    "河网汇水阈值(m²)": "River threshold drainage area (m²)",
+    "处理步骤（自上而下，每个时间步按顺序执行）":
+        "Steps (executed top-to-bottom every time step)",
+    "双击步骤编辑参数；分析类组件自动设为\"结束一次\"；在左侧组件库双击任意组件/插件即可添加步骤":
+        "Double-click a step to edit. Analysis components default to 'once at end'. Double-click any component/plugin on the left to add a step.",
+    "编辑参数": "Edit Parameters",
+    "已添加步骤: {0} ({1})": "Step added: {0} ({1})",
+    "找不到该功能的定义（组件或插件可能已移除）":
+        "Definition not found (component/plugin may have been removed)",
+    # ---- 表单 ----
+    "浮点": "float", "整数": "int", "文本": "text", "开关": "toggle",
+    "可留空": "optional", "字段引用": "field ref", "数组": "array",
+    "JSON对象": "JSON object", "JSON": "JSON",
+    "如 1e-5（留空=用组件默认值）": "e.g. 1e-5 (leave empty = component default)",
+    "留空": "leave empty",
+    "（可选当前网格已有字段，也可手输）": " (pick an existing grid field, or type one)",
+    "（JSON 或逗号分隔）": " (JSON or comma-separated)",
+    "（原样传给组件）": " (passed to the component as-is)",
+    "参数 {0} 的值无法解析为数字": "Value of '{0}' is not a valid number",
+    "参数错误": "Invalid Parameter",
+    # ---- 网格对话框 ----
+    "新建网格 / 导入DEM": "New Grid / Import DEM",
+    "网格类型": "Grid Type",
+    "类型": "Type",
+    "网格行数(南北), 列数(东西)": "rows (N-S), cols (E-W)",
+    "分辨率 m/格": "cell size (m)",
+    "[行数, 每行节点数]": "[rows, nodes per row]",
+    "节点间距 m": "node spacing (m)",
+    "环数": "number of rings",
+    "第一环节点数": "nodes in first ring",
+    "环间距 m": "ring spacing (m)",
+    "[行, 列]": "[rows, cols]",
+    "平均间距 m": "mean spacing (m)",
+    "随机点数（自动布点）": "random points (auto placed)",
+    "区域宽度 m": "domain width (m)",
+    "区域高度 m": "domain height (m)",
+    "初始地形": "Initial Terrain",
+    "模式": "Mode",
+    "噪声/山峰幅度 (m)": "Noise/peak amplitude (m)",
+    "整体坡度 (引导水流)": "Initial slope (drives drainage)",
+    "出水口方向": "Outlet direction",
+    "随机种子": "Random seed",
+    "边界条件": "Boundary Conditions",
+    "方案": "Scheme",
+    "south_open (教程默认: 四周封闭+南缘出水口)":
+        "south_open (closed edges + south outlet, tutorial default)",
+    "all_closed (四周封闭)": "all_closed (all edges closed)",
+    "default (landlab默认)": "default (landlab default)",
+    "或从 DEM 文件导入（覆盖上面的网格/地形设置）":
+        "Or import a DEM file (overrides grid/terrain above)",
+    "选择 .asc 文件后留空...": "pick a .asc file...",
+    # ---- 导出对话框 ----
+    "导出当前地形与河网": "Export Current Terrain & River Network",
+    "输出目录（DEM与河网）": "Output directory",
+    "DEM 格式": "DEM Formats",
+    "ASCII (.asc) — QGIS/ArcGIS": "ASCII (.asc) — QGIS/ArcGIS",
+    "NetCDF (.nc) — ParaView，含全部字段": "NetCDF (.nc) — ParaView, all fields",
+    "VTK (.vtk) — ParaView 3D": "VTK (.vtk) — ParaView 3D",
+    "OBJ (.obj) — Blender 3D": "OBJ (.obj) — Blender 3D",
+    "GeoTIFF (.tif) — 需 rasterio": "GeoTIFF (.tif) — needs rasterio",
+    "河网水系": "River Network",
+    "提取并导出河网 (GeoJSON/Shapefile/CSV)":
+        "Extract & export river network (GeoJSON/Shapefile/CSV)",
+    "汇水面积阈值 (m²)": "Drainage-area threshold (m²)",
+    "未选择": "Nothing Selected",
+    "后台导出到 {0} ...": "Exporting in background to {0} ...",
+    # ---- 在线DEM ----
+    "从在线地图下载真实DEM": "Download Real DEM (Online Map)",
+    "在全球范围内选取真实地形（数据源: SRTM/Copernicus，免密钥）。\n搜索地名后自动填入范围，也可手动输入经纬度；下载后即可进行侵蚀分析。\n下载得到的 DEM 会自动存成 .asc 保存在【dem_downloads】文件夹，可在\"打开下载文件夹\"中查看。":
+        "Pick real terrain worldwide (source: SRTM/Copernicus, key-free).\nSearch a place name to fill the box, or type lat/lon manually; then run erosion analysis on it.\nEach download is saved as .asc in the [dem_downloads] folder — see \"Open Downloads Folder\".",
+    "① 按地名搜索": "① Search by place name",
+    "例: 华山 / Mount Hua / 富士山 / Grand Canyon（歧义名建议用英文）":
+        "e.g. Mount Hua / Fuji / Grand Canyon (use English for ambiguous names)",
+    "搜索中...": "Searching...",
+    "② 区域范围（可手动修改）": "② Region (editable)",
+    "南纬 (South)": "South lat",
+    "北纬 (North)": "North lat",
+    "西经 (West)": "West lon",
+    "东经 (East)": "East lon",
+    "③ 下载设置": "③ Download Settings",
+    "缩放级别 (越大越精细)": "Zoom level (higher = finer)",
+    "边界条件": "Boundary Conditions",
+    "网络代理": "Network proxy",
+    "留空=系统代理；直连失败可填 http://127.0.0.1:7890":
+        "empty = system proxy; if direct fails try http://127.0.0.1:7890",
+    "🌐 下载并建网格": "🌐 Download & Build Grid",
+    "预计网格: {0} 格 | 分辨率≈{1} m/格": "Grid: {0} cells | ≈{1} m/cell",
+    "  ⚠ 过大，建议降低缩放": "  ⚠ too large; lower the zoom",
+    "区域过大": "Region Too Large",
+    "预计 {0} 格超出处理能力，请缩小范围或降低缩放级别":
+        "{0} cells exceeds capacity; shrink the region or lower the zoom",
+    "搜索进行中": "Search in Progress",
+    "地名搜索还在后台进行，请稍候再操作": "Place-name search is still running; try again shortly",
+    "搜索失败": "Search Failed",
+    "手动范围": "manual box",
+    "开始下载在线DEM: {0} ...": "Downloading DEM: {0} ...",
+    "DEM下载失败": "DEM Download Failed",
+    "在线DEM建网格出错": "Online DEM grid error",
+    "打开下载文件夹": "Open Downloads Folder",
+    "打开DEM下载文件夹": "Open DEM Downloads Folder",
+    "查看已下载保存的 DEM 文件（.asc，可直接再导入）":
+        "Browse saved DEM files (.asc, re-importable directly)",
+    "DEM 已保存: {0}": "DEM saved: {0}",
+    "DEM 存盘失败: {0}": "Could not save DEM: {0}",
+    "真实地形已就绪！推荐工作流: 构造抬升(可选) → PriorityFloodFlowRouter → FastscapeEroder → LinearDiffuser，点 ▶ 运行即可模拟河流切割真实山脉":
+        "Real terrain ready! Suggested steps: tectonic uplift (optional) → PriorityFloodFlowRouter → FastscapeEroder → LinearDiffuser; hit ▶ Run to carve real mountains",
+    # ---- 参数扫描 ----
+    "参数扫描批量实验": "Parameter Sweep",
+    "原理: 载入预设（或含网格配置的工作流）后，固定其他条件，\n仅让一个参数在范围内取值，逐一完整模拟并对比结果。\n建议先用小网格+少步数试跑一遍，再放大正式扫描。":
+        "How it works: load a preset (any workflow with a grid config), vary ONE parameter across a range, run a full simulation per value and compare.\nTip: try a small grid / few steps first.",
+    "扫描目标": "Sweep Target",
+    "目标步骤": "Target step",
+    "目标参数": "Target parameter",
+    "取值范围": "Value Range",
+    "起始值": "Start",
+    "终止值": "End",
+    "取值个数": "Count",
+    "对数等比（适合 K_sp 等跨数量级参数）":
+        "Logarithmic (for cross-decade params like K_sp)",
+    "对数扫描要求参数值 > 0": "Log sweep requires values > 0",
+    "输出": "Output",
+    "结果目录": "Results directory",
+    "开始扫描": "Start Sweep",
+    "缺少参数": "No Parameter",
+    "该步骤没有可扫描的数值参数": "This step has no numeric parameter to sweep",
+    "范围无效": "Invalid Range",
+    "起始值与终止值不能相同": "Start and end cannot be equal",
+    "对数扫描要求两端 > 0（或改用线性）": "Log sweep requires both ends > 0 (or use linear)",
+    "无法扫描": "Cannot Sweep",
+    "当前工作流没有网格配置（沿用交互网格）。\n请先载入任意预设，再打开参数扫描。":
+        "The workflow has no grid config (uses the interactive grid).\nLoad any preset first, then open the sweep.",
+    "正在扫描...": "Sweeping...",
+    "扫描完成": "Sweep finished", "扫描失败": "Sweep failed",
+    "参数扫描中... ": "Parameter sweep... ",
+    "参数扫描完成: {0}": "Sweep finished: {0}",
+    "参数扫描失败: {0}": "Sweep failed: {0}",
+    "统计表": "Statistics",
+    "坡度-面积对比": "Slope-Area Comparison",
+    "统计曲线": "Stat Curves",
+    "地形缩略图": "Terrain Thumbnails",
+    "平均高程": "Mean elev.", "最大高程": "Max elev.", "最小高程": "Min elev.",
+    "起伏 (m)": "Relief (m)",
+    "无坡度-面积数据（需运行含汇流步骤）":
+        "No slope-area data (needs a flow-routing step)",
+    "坡度-面积曲线对比（凹度差异一眼可见）":
+        "Slope-area curves (concavity differences at a glance)",
+    "形态指标随参数变化": "Morphometrics vs parameter",
+    "导出统计 CSV": "Export CSV",
+    "保存对比图组": "Save Figures",
+    "扫描统计已导出: {0}": "Sweep stats exported: {0}",
+    "已保存: {0}": "Saved: {0}",
+    "扫描在第 {0}/{1} 组前被取消": "Sweep cancelled before group {0}/{1}",
+    "扫描完成: {0} 共 {1} 组": "Sweep done: {0}, {1} groups",
+    "参数扫描要求工作流包含网格配置（载入预设后即可扫描）；当前工作流沿用交互网格，无法复现建网格":
+        "Sweep needs a workflow with grid config (load a preset); the current workflow reuses the interactive grid and cannot rebuild it",
+    "找不到步骤 {0}": "Step {0} not found",
+    "参数 {0} 不是数值，无法扫描": "'{0}' is not numeric; cannot sweep",
+    "--- 扫描 {0}/{1}: {2} = {3} ---": "--- sweep {0}/{1}: {2} = {3} ---",
+    # ---- 运行历史 ----
+    "A/B 对比": "A/B Compare",
+    "回滚到此快照": "Rollback to Snapshot",
+    "每次运行结束自动记录；选中两条可A/B对比，选中一条可回滚":
+        "Auto-recorded after each run; select two to compare, one to rollback",
+    "请按住 Ctrl 选中恰好两条快照": "Select exactly two snapshots (Ctrl+click)",
+    "请选中一条快照": "Select one snapshot",
+    "无法回滚": "Cannot Rollback",
+    "该快照没有网格配置（交互建的网格），无法重建。\n提示：载入预设运行后即可回滚。":
+        "This snapshot has no grid config (interactive grid) and cannot be rebuilt.\nTip: rollback works after running a preset.",
+    "已恢复该时刻的地形。\n注意：组件内部状态会重新实例化，直接点运行即可继续演化。":
+        "Terrain restored. Note: component states are re-instantiated; hit Run to continue evolution.",
+    "回滚成功": "Rolled Back",
+    "回滚失败": "Rollback Failed",
+    "已回滚到快照: {0}（可继续点运行演化）": "Rolled back to: {0} (hit Run to continue)",
+    "终点高程均值 {0}m": "final mean {0} m",
+    "两次运行网格不同，无法逐点求差": "Different grids — cannot diff pointwise",
+    # ---- 代码编辑器 ----
+    "▶ 运行代码 (Ctrl+R)": "▶ Run Code (Ctrl+R)",
+    "另存为插件...": "Save as Plugin...",
+    "插入模板": "Insert Template",
+    "插件功能名称：": "Plugin name:",
+    "我的自定义功能": "My custom feature",
+    "保存失败": "Save Failed",
+    "已保存": "Saved",
+    "已保存:\n{0}\n\n请通过菜单 插件->重载插件 加载。":
+        "Saved:\n{0}\n\nUse Plugins → Reload Plugins to load it.",
+    "[插件] 已保存: {0}，请在菜单'插件->重载插件'后使用":
+        "[plugin] saved: {0} — use Plugins→Reload Plugins",
+    "[代码] 开始执行片段...": "[code] running snippet...",
+    "[代码] {0}": "[code] {0}",
+    "[代码] 出错: {0}": "[code] error: {0}",
+    "上一次代码还在运行中": "Previous snippet is still running",
+    "模拟正在运行中，代码片段会与它竞争同一网格，请先停止模拟":
+        "The simulation is running; a snippet would race on the same grid. Stop it first.",
+    # ---- 画布 ----
+    "地形": "Terrain", "面积": "Area", "坡度-面积": "Slope-Area",
+    "剖面": "Profile", "历史": "History", "3D地形": "3D Terrain",
+    "地形高程 (m)": "Terrain elevation (m)",
+    "汇水面积 log10(m²)": "Drainage area log10(m²)",
+    "沿程距离 (m)": "Distance (m)", "高程 (m)": "Elevation (m)",
+    "演化历史": "Evolution history", "步数": "Steps", "X (m)": "X (m)", "Y (m)": "Y (m)",
+    "📏 取点剖面": "📏 Pick Profile",
+    "勾选后在地形图上点两个点，即画出任意方向的地形剖面":
+        "Check, then click two points on the terrain map to draw an arbitrary-direction profile",
+    "点击第 1 个点...": "Click the first point...",
+    "已选 A({0},{1})，点击第 2 个点...": "A({0},{1}) set; click the second point...",
+    "剖面已画出（黄线），共 {0} 个采样点": "Profile drawn (yellow), {0} samples",
+    "剖面{n}: A-B": "Profile {n}: A-B",
+    "💡 点击地形/面积图可查看该点数值；工具栏可缩放平移":
+        "💡 Click the terrain/area map to inspect values; toolbar zooms/pans",
+    "💡 运行后图表才有数据；点击图查数值；工具栏：🔍缩放 ✥平移（⌂◀▶ 在用过缩放后才亮起）":
+        "💡 Charts have data after a run; click to inspect; toolbar: 🔍zoom ✥pan (⌂◀▶ enable after zooming)",
+    "运行含汇流组件后显示\n(阈值 A>1e3 m²)":
+        "Shown after a flow-routing step\n(threshold A>1e3 m²)",
+    "运行含汇流的组件后显示\n(最长河道纵剖面)":
+        "Shown after flow routing\n(longest channel profile)",
+    "运行模拟后显示": "Shown after a run",
+    "无有效数据": "No valid data",
+    "该网格类型暂不支持二维显示": "2D view unsupported for this grid type",
+    "该网格类型暂不支持3D显示": "3D view unsupported for this grid type",
+    "节点 {0}  ({1}, {2})": "Node {0}  ({1}, {2})",
+    "📍 ": "📍 ",
+    # ---- 向导 ----
+    "欢迎使用 Landlab 地貌模拟工作台 🌏":
+        "Welcome to the Landlab Workbench 🌏",
+    "这是一个可视化的地貌演化模拟器：不用写代码，点选组件就能\n搭建\"抬升→汇流→侵蚀→扩散\"的工作流并实时看到山脉长出来。\n\n本向导用 4 步带你走完基本流程。":
+        "A visual landscape-evolution simulator: no coding needed — pick components\nto build an 'uplift → routing → erosion → diffusion' workflow and watch mountains grow.\n\nThis wizard walks you through the basics in 4 steps.",
+    "第 1 步 · 建立网格": "Step 1 · Create a Grid",
+    "菜单【网格 → 新建网格】。\n\n· 默认参数即可（80×100 格、100m 分辨率）\n· 或选\"从DEM导入\"加载真实地形 (.asc)\n· 边界条件建议保持默认（四周封闭+南缘出水口，教程同款）":
+        "Menu【Grid → New Grid】.\n\n· Defaults are fine (80×100 cells, 100 m spacing)\n· Or import a real DEM (.asc)\n· Keep the default boundary (closed edges + south outlet)",
+    "第 2 步 · 添加过程组件": "Step 2 · Add Process Components",
+    "在左侧【组件库】双击任意组件即可加入工作流，推荐入门组合：\n\n  1. 构造抬升(4种模式)   —— 每步抬升（插件）\n  2. PriorityFloodFlowRouter —— 计算水流路径\n  3. FastscapeEroder        —— 河道下切\n  4. LinearDiffuser         —— 坡面扩散\n\n双击步骤列表中的条目可改参数（鼠标悬停看官方文档）。\n想偷懒？直接双击左下角【快速测试】预设，全部自动配好。":
+        "Double-click components in the left library to add them. Suggested starter set:\n\n  1. Tectonic uplift (4 modes)  — per-step uplift (plugin)\n  2. PriorityFloodFlowRouter — flow routing\n  3. FastscapeEroder        — channel incision\n  4. LinearDiffuser         — hillslope diffusion\n\nDouble-click a step to edit parameters (hover for docs).\nShortcut: double-click the 'Quick Test' preset — fully preconfigured.",
+    "第 3 步 · 运行并观察": "Step 3 · Run & Watch",
+    "点工具栏【▶ 运行工作流】(F5)。\n\n· 右侧画布实时刷新：地形 / 汇水面积 / 坡度-面积 / 剖面 / 3D\n· 地形图上可缩放平移、点击查值、\"取点剖面\"画任意方向剖面\n· 底部控制台显示全部日志；随时可【■ 停止】":
+        "Hit【▶ Run Workflow】(F5).\n\n· Right canvas live-updates: terrain / area / slope-area / profile / 3D\n· Zoom, pan, click-to-inspect, and pick two points for a profile\n· Console shows all logs; ■ Stop anytime",
+    "第 4 步 · 分析与导出": "Step 4 · Analyse & Export",
+    "科研三件套都在菜单里：\n\n· 【工具 → 参数扫描实验】批量跑参数对比（论文级图表）\n· 【工具 → 生成实验报告】一键产出 Markdown+图组\n· 【工具 → 导出当前地形】asc/nc/vtk/obj + 河网 GIS 数据\n· 左侧【运行历史】可 A/B 对比与回滚\n\n准备就绪，点击\"完成\"开始你的第一次模拟！":
+        "Research toolkit in the menus:\n\n· Tools → Parameter Sweep (publication-grade comparison charts)\n· Tools → Generate Report (Markdown + figures in one click)\n· Tools → Export Terrain (asc/nc/vtk/obj + river GIS data)\n· Run History for A/B compare & rollback\n\nReady? Click Finish and run your first simulation!",
+    "上一步": "Back", "下一步": "Next", "完成 🎉": "Finish 🎉",
+    # ---- 控制台/日志（引擎与插件） ----
+    "=== 开始运行工作流: {0} ===": "=== Run workflow: {0} ===",
+    "步骤: 启动前 {0} | 循环 {1} | 结束 {2} | dt={3} x {4} 步":
+        "Steps: pre {0} | loop {1} | post {2} | dt={3} × {4}",
+    "用户中断于第 {0}/{1} 步": "Interrupted at step {0}/{1}",
+    "=== 运行完成 ===": "=== Run complete ===",
+    "最终地形: 平均 {0} m, 最大 {1} m": "Final terrain: mean {0} m, max {1} m",
+    "运行出错": "Run error",
+    "新网格: {0}, 节点数 {1}": "New grid: {0}, {1} nodes",
+    "网格已建立: {0} {1}": "Grid created: {0} {1}",
+    "边界: 四周封闭": "Boundary: all closed",
+    "边界: 四周封闭 + 南缘开放出水口（教程默认）":
+        "Boundary: closed edges + south outlet (tutorial default)",
+    "初始地形: {0}, 幅度={1}, 坡度={2} 方向={3}":
+        "Initial terrain: {0}, amp={1}, slope={2}, dir={3}",
+    "自动创建字段: {0} (at={1}, dtype={2})":
+        "Auto-created field: {0} (at={1}, dtype={2})",
+    "实例化组件 {0} (id={1})": "Instantiated {0} (id={1})",
+    "分析完成: {0}.{1}()": "Analysis done: {0}.{1}()",
+    "分析完成: {0}.run_one_step()": "Analysis done: {0}.run_one_step()",
+    "分析 {0}.{1}() 失败: {2}": "Analysis {0}.{1}() failed: {2}",
+    "分析 {0} 运行失败: {1}": "Analysis {0} failed: {1}",
+    "分析组件 {0} 无可用计算方法，已实例化（输出字段可直接查看）":
+        "{0} has no calc method; instantiated (check output fields)",
+    "DEM 已导入: {0} ({1} 节点)": "DEM imported: {0} ({1} nodes)",
+    "导出到: {0}": "Export to: {0}",
+    "导出完成! 文件在: {0}": "Export finished! Files in: {0}",
+    "[插件] 已加载 {0}": "[plugin] loaded {0}",
+    "[插件] 加载失败 {0}": "[plugin] failed to load {0}",
+    "[插件] 共加载 {0} 个自定义功能": "[plugin] {0} custom feature(s) loaded",
+    "[插件] 重名覆盖: {0} ({1})": "[plugin] duplicate name overrides: {0} ({1})",
+    "组件库: {0} 个 landlab 组件 | 自定义插件: {1} 个":
+        "Library: {0} landlab components | plugins: {1}",
+    "=== 启动工作流: {0} ({1} 个步骤) ===": "=== Start workflow: {0} ({1} steps) ===",
+    "工作流共 {0} 个步骤": "Workflow has {0} steps",
+    "运行结束: {0}": "Run finished: {0}",
+    "运行失败: {0}": "Run failed: {0}",
+    "工作流已保存: {0}": "Workflow saved: {0}",
+    "工作流已载入: {0}": "Workflow loaded: {0}",
+    "已载入预设: {0} —— {1}": "Preset loaded: {0} — {1}",
+    "点 ▶ 运行 即可（预设会自动建网格）": "Hit ▶ Run (the preset builds its grid automatically)",
+    "插件已重载: 共 {0} 个自定义功能": "Plugins reloaded: {0} custom feature(s)",
+    "打开失败": "Open Failed",
+    "建网格失败": "Grid Creation Failed",
+    "正在生成实验报告...": "Generating report...",
+    "实验报告已生成: {0}（含 {1} 张图）": "Report generated: {0} ({1} figures)",
+    "正在生成动画（{0} 帧）...": "Generating animation ({0} frames)...",
+    "还没有动画帧：请先运行一次模拟": "No frames yet: run a simulation first",
+    "还没有可用的动画帧（请先运行一次模拟并保持画面刷新≥1次）":
+        "No animation frames (run a simulation with at least one refresh)",
+    "未找到 ffmpeg，无法导出 MP4；请改用 .gif": "ffmpeg not found: use .gif instead of MP4",
+    "尚无网格，无法生成报告": "No grid: cannot generate a report",
+    "语言将在重启后完全生效，现在重启吗？":
+        "The language fully applies after a restart. Restart now?",
+    "重启应用": "Restart",
+    "插件已重载: 共 {0} 个自定义功能": "Plugins reloaded: {0} custom feature(s)",
+    "组件库: {0} 个 landlab 组件, {1} 个自定义插件":
+        "Library: {0} landlab components, {1} plugins",
+    # ---- 表单分组 / AI 助手 ----
+    "核心参数": "Core Parameters",
+    "高级参数（{0} 项）": "Advanced ({0} items)",
+    "整数（留空=用组件默认值）": "int (empty = component default)",
+    "工具(&T)": "&Tools",
+    "🤖 AI 参数助手...": "🤖 AI Parameter Assistant...",
+    "自然语言描述场景，AI 自动配置工作流":
+        "Describe a scenario in natural language; the AI builds the workflow",
+    "AI 参数助手": "AI Parameter Assistant",
+    "① 场景描述": "① Scenario",
+    "② 接口配置": "② API Settings",
+    "服务商预设": "Provider preset",
+    "— 选择服务商预设 —": "— choose a provider —",
+    "API 地址": "API URL",
+    "API Key": "API Key",
+    "模型名": "Model",
+    "网络代理": "Proxy",
+    "留空=无需鉴权（本地 Ollama）": "empty = no auth (local Ollama)",
+    "留空=系统代理；如 http://127.0.0.1:7890": "empty = system proxy; e.g. http://127.0.0.1:7890",
+    "查看原始回复": "Show raw reply",
+    "AI 原始回复（出错时用于排查）": "Raw AI reply (for troubleshooting)",
+    "✨ 生成工作流": "✨ Generate Workflow",
+    "生成中…": "Generating…",
+    "正在请求 AI（可能需要 10~60 秒）…": "Requesting AI (10–60 s)…",
+    "正在生成中，请等待完成": "Generation in progress; please wait",
+    "生成失败": "Generation failed",
+    "生成成功": "Generated",
+    "AI 生成的步骤全部无效，请换一种描述或更强的模型":
+        "All AI-generated steps were invalid; rephrase or use a stronger model",
+    "请先描述场景": "Describe the scenario first",
+    "请填写 API 地址（或选择服务商预设）": "Fill in the API URL (or pick a preset)",
+    "AI 已生成工作流: {0} ({1} 个步骤)": "AI built workflow: {0} ({1} steps)",
+    "AI 可能给出不完美的参数，建议点开各步骤核对后再运行":
+        "AI parameters may be imperfect — review each step before running",
+    "工作流已载入。请核对各步骤参数（尤其数值量级），然后点 ▶ 运行。":
+        "Workflow loaded. Review the step parameters, then hit ▶ Run.",
+
+    # ---- 补齐：画布与图表 ----
+    "汇水面积 A (m²)": "Drainage area A (m²)",
+    "坡度 S": "Slope S",
+    "河道纵剖面": "River long profile",
+    "运行含汇流组件后显示": "Shown after running a flow-routing component",
+    "运行含汇流的组件后显示\n(阈值 A>1e3 m²)":
+        "Shown after running a flow-routing component\n(threshold A>1e3 m²)",
+    "查看字段:": "Field:",
+    "切换地形页显示的字段（运行越多样组件，可选字段越多）":
+        "Switch the field shown on the terrain tab (more components → more fields)",
+    "按时间轴回放本次模拟的演化过程": "Replay the evolution of this run on a timeline",
+    "拖动查看不同时刻的地形": "Drag to view terrain at different moments",
+    "模拟完成后在此交互查看图表 · 单击画布查值 · 滚轮缩放与拖拽平移":
+        "After a run, explore charts here · click to inspect values · scroll to zoom, drag to pan",
+    "回放帧与当前网格形状不符（网格已重建）":
+        "Replay frames do not match the current grid shape (the grid was rebuilt)",
+    "该字段尚无数据（先运行产生它的组件）":
+        "No data for this field yet (run the component that produces it)",
+    "渲染出错": "Render error",
+
+    # ---- 补齐：参数扫描 ----
+    "参数扫描": "Parameter Sweep",
+    "参数扫描结果: {0} ({1} 组)": "Sweep results: {0} ({1} runs)",
+    "扫描完成: {0} 共 {1} 组 (有效 {2} 组)":
+        "Sweep finished: {0} — {1} runs ({2} valid)",
+    "启动并行参数扫描: {0} 组, workers={1} ...":
+        "Starting parallel sweep: {0} runs, workers={1} ...",
+    "用户请求中断，停止派发后续扫描任务":
+        "Interrupted by user; no further sweep tasks will be dispatched",
+    "✓ 完成 {0}/{1}: {2} = {3}": "✓ Done {0}/{1}: {2} = {3}",
+    "扫描 {0} = {1} 失败，已跳过: {2}": "Sweep {0} = {1} failed, skipped: {2}",
+
+    # ---- 补齐：运行历史 ----
+    "有任务正在后台运行，请等待完成或停止":
+        "A task is running in the background; wait for it or stop it first",
+    "B−A 差值: 蓝=侵蚀, 红=堆积": "B−A difference: blue = erosion, red = deposition",
+    "B−A 差值: 平均 {0} m | 最大 {1} m | 起伏 A={2}m, B={3}m":
+        "B−A difference: mean {0} m | max {1} m | relief A={2} m, B={3} m",
+
+    # ---- 补齐：主窗口 ----
+    "快速上手: 双击左下【快速测试】预设 → 按 F5 或点【开始运行工作流】；不熟悉可看 菜单[帮助→新手引导]":
+        "Quick start: double-click the \u201cQuick test\u201d preset (bottom left) → "
+        "press F5 or click \u201cRun workflow\u201d; see Help → Welcome guide",
+    "网格: 未初始化": "Grid: not initialized",
+    "步骤: 0 步": "Steps: 0",
+    "步骤: {0} 步": "Steps: {0}",
+    "动画帧: 0": "Animation: 0",
+    "动画: {0} 帧": "Animation: {0} frames",
+    "就绪": "Ready",
+    "运行工作流": "Run Workflow",
+    "导出演化动画": "Export Evolution Animation",
+    "选择报告输出目录": "Choose Report Output Folder",
+    "保存工作流": "Save Workflow",
+    "打开工作流": "Open Workflow",
+    "工作流 JSON (*.json)": "Workflow JSON (*.json)",
+    "动画 (*.gif)": "Animation (*.gif)",
+    "所有文件 (*)": "All files (*)",
+    "按 F5 或点【开始运行工作流】即可（预设会自动建网格）":
+        "Press F5 or click \u201cRun workflow\u201d (presets build the grid automatically)",
+    "空工作流": "Empty Workflow",
+    "请在左侧组件库双击组件/插件添加步骤，或载入场景预设":
+        "Double-click a component/plugin in the left library to add steps, or load a scene preset",
+    "依赖预检提示": "Dependency Pre-check",
+    "检测到工作流可能缺少前置依赖字段：\n\n{0}\n\n若直接运行，引擎将自动用全零填充缺失字段，这可能导致模拟结果失真。\n是否继续运行？":
+        "The workflow may be missing prerequisite fields:\n\n{0}\n\n"
+        "If you run it anyway, the engine fills missing fields with zeros, which can distort results.\n"
+        "Continue?",
+    "以下功能不存在（插件被删除/改名？）：\n{0}\n\n请删除或修正这些步骤后重试":
+        "These features do not exist (plugin deleted or renamed?):\n{0}\n\n"
+        "Remove or fix these steps and try again",
+    "导出失败: {0}": "Export failed: {0}",
+    "无法获取更新信息，请检查网络连接或代理设置。\n错误: ":
+        "Could not fetch update information. Check your network or proxy settings.\nError: ",
+    "未命名": "Untitled",
+
+    # ---- 补齐：工作流面板 ----
+    "工作流名称": "Workflow name",
+    "历史记录间隔(步)": "History interval (steps)",
+    "每隔多少步记录一次平均/最大高程（演化历史图与实验报告用）":
+        "How often to record mean/max elevation (used by the history chart and reports)",
+    "执行时机": "Timing",
+    "编辑步骤: ": "Edit step: ",
+    "勾选后每次运行都会新建网格（预设场景用）；\n不勾选则沿用当前网格，可反复运行累积演化。":
+        "Checked: build a fresh grid on every run (for presets);\n"
+        "unchecked: reuse the current grid so successive runs accumulate evolution.",
+    "（尚未配置网格 —— 请 菜单[网格]->新建网格 或载入预设）":
+        "(No grid configured — menu Grid → New Grid, or load a preset)",
+    "提示：双击步骤可编辑参数；在左侧双击组件或插件即可添加到工作流":
+        "Tip: double-click a step to edit its parameters; "
+        "double-click a component/plugin on the left to add it",
+
+    # ---- 补齐：代码编辑器 / 控制台 / 向导 ----
+    "运行代码 (Ctrl+R)": "Run Code (Ctrl+R)",
+    "另存为插件": "Save as Plugin",
+    "清空日志": "Clear Log",
+    "完成": "Finish",
+
+    # ---- 补齐：在线 DEM ----
+    "south_open (四周封闭+南缘出水口，教程同款)":
+        "south_open (closed edges + southern outlet; tutorial default)",
+    "  [警告] 节点过多，建议降低缩放": "  [warning] too many cells; lower the zoom",
+
+    # ---- 补齐：AI 助手 ----
+    "用一句自然语言描述想要的模拟场景，AI 自动配置整个工作流。\n兼容任意 OpenAI 风格接口（OpenAI / DeepSeek / Kimi / 本地 Ollama 等），Key 保存在本机，不上传。":
+        "Describe the scenario in one sentence and the AI configures the whole workflow.\n"
+        "Works with any OpenAI-style endpoint (OpenAI / DeepSeek / Kimi / local Ollama). "
+        "The key stays on this machine and is never uploaded.",
+    "例：我想要一个青藏高原式的场景：北缘快速隆升（1e-3 m/yr）南缘缓慢，\n基岩较硬（K=2e-6），网格 100×120，模拟 50 万年，最后输出 χ 和 ksn 分析":
+        "e.g. A Tibetan-plateau style scenario: fast uplift on the northern margin (1e-3 m/yr), "
+        "slow in the south,\nhard bedrock (K=2e-6), 100×120 grid, 500 kyr, "
+        "with χ and ksn analysis at the end",
+    "以下名称 AI 编造了或不存在，已自动移除这些步骤":
+        "The AI invented or referenced names that do not exist; those steps were removed",
+
+    # ---- 补齐：更新对话框 ----
+    "发现新版本": "New Version Available",
+    "（该版本暂无详细更新说明）": "(No detailed release notes for this version)",
+    "暂无更高版本发布。": "No newer release is available.",
+    "您当前运行的是最新版本 Landlab 地貌模拟工作台 (":
+        "You are running the latest Landlab Geomorphology Workbench (",
+    "最新发行版: ": "Latest release: ",
+
+    # ---- 课堂实验 ----
+    "课堂实验": "Classroom Lab",
+    "课堂实验: 打开帮助菜单里的「课堂实验」，用一节课走完河流下切；想自己探索可看「新手引导」。":
+        "Classroom lab: open Help → Classroom Lab for the river-incision lesson; "
+        "Help → Getting Started is the self-paced tour.",
+    "主要给上课的学生和大学老师：帮助菜单里的课堂实验是一节河流下切课。":
+        "Built first for students and the instructor: Help → Classroom Lab is one river-incision class.",
+    "预设未找到": "Preset Not Found",
+    "没有找到名为「{0}」的预设。": "No preset named \"{0}\" was found.",
+    "河流怎么切开山地": "How rivers cut a mountain",
+    "给上课的学生和带实验的老师。做完四步过程、看完两张图，再交一份记录。":
+        "For students in class and the instructor running the lab. "
+        "Finish the four processes, look at two plots, then hand in a note.",
+    "我已阅读学习目标": "I have read the learning goals",
+    "汇水面积越大，河道坡度总体越缓":
+        "Larger drainage area goes with a gentler channel slope",
+    "汇水面积越大，河道坡度总体越陡":
+        "Larger drainage area goes with a steeper channel slope",
+    "坡度和汇水面积没有关系": "Slope and drainage area are unrelated",
+    "学生姓名": "Student name",
+    "交给老师的名字": "Name to hand in",
+    "载入课堂预设": "Load classroom preset",
+    "开始运行": "Start run",
+    "导出实验记录": "Export lab note",
+    "检查进度": "Check progress",
+    "自己探索": "Explore on my own",
+    "打开老师讲义": "Open instructor notes",
+    "课堂实验完成": "Classroom lab complete",
+    "可以交作业了": "Ready to hand in",
+    "记录里已经有预设名、完成步数、平均高程、最大高程和你的选择。把文件交给老师。想继续试参数，可以用左侧组件库。":
+        "The note has the preset name, completed steps, mean and max elevation, and your answer. "
+        "Hand the file to your instructor. The component library is there if you want to change parameters.",
+    "第 {0} / {1} 步": "Step {0} / {1}",
+    "Markdown (*.md)": "Markdown (*.md)",
+    "实验记录已导出: {0}": "Lab note exported: {0}",
+    "已离开课堂实验，下面是原来的新手引导。":
+        "Left the classroom lab. The short getting-started tour is next.",
+    "找不到老师讲义。": "Instructor notes were not found.",
+    "学习目标": "Learning goals",
+    "载入预设": "Load the preset",
+    "看懂四步": "Read the four steps",
+    "运行模拟": "Run the model",
+    "看图": "Look at the plots",
+    "选择题": "Check question",
+    "实验记录": "Lab note",
+    "这节课给地貌学或自然地理课的学生，也给带实验的老师。\n\n做完后你应该能说出四件事：\n· 构造抬升把地面抬高\n· 汇流算出水往哪流、汇水面积有多大\n· 河道下切沿水路切出河谷\n· 坡面扩散把陡坡变缓\n\n最后看坡度-面积图：河道段通常是汇水面积越大、坡度越缓。":
+        "This class is for geomorphology or physical-geography students, and for the instructor.\n\n"
+        "By the end you should be able to say four things:\n"
+        "· Tectonic uplift raises the land\n"
+        "· Flow routing finds where water goes and how large the drainage area is\n"
+        "· Channel incision cuts valleys along those paths\n"
+        "· Hillslope diffusion softens steep slopes\n\n"
+        "On the slope-area plot, channel points usually get gentler as drainage area grows.",
+    "点「载入课堂预设」，或在左侧「场景预设」里双击「课堂实验-河流下切」。\n这个预设用小网格，一节课里几十秒可以跑完，并且不会自动导出文件。":
+        "Click Load classroom preset, or double-click \"课堂实验-河流下切\" under Presets.\n"
+        "It uses a small grid, finishes in well under a minute, and does not auto-export files.",
+    "工作流里应依次是：\n1. 构造抬升(4种模式) — 每个时间步把地面抬高一点\n2. PriorityFloodFlowRouter — 算出水流路径和汇水面积\n3. FastscapeEroder — 沿着河道向下切\n4. LinearDiffuser — 坡面上的土石慢慢摊平":
+        "The workflow should run in this order:\n"
+        "1. Tectonic uplift (4 modes) — raises the land a little each step\n"
+        "2. PriorityFloodFlowRouter — computes flow paths and drainage area\n"
+        "3. FastscapeEroder — cuts down along channels\n"
+        "4. LinearDiffuser — slowly smoothes soil on hillslopes",
+    "点「开始运行」，或按 F5。等到控制台写出运行完成。\n中途停止的话，这步不算完成，需要再完整跑一次。":
+        "Click Start run, or press F5. Wait until the console says the run finished.\n"
+        "Stopping halfway does not count; run it through to the end.",
+    "右侧画布已经停在地形高程。先看山谷有没有被切出来，再点「坡度-面积」。先看地形、再看坡度-面积，这步才通过。":
+        "The canvas is on terrain elevation. Look for cut valleys, then open Slope-area. "
+        "Terrain first, slope-area second: that is what this step checks.",
+    "河道段在坡度-面积图上，大致是什么关系？":
+        "On the slope-area plot, what happens along the channel points?",
+    "写下你的姓名，导出 Markdown 实验记录。里面会有预设名、完成步数、平均和最大高程，以及你选的答案。":
+        "Type your name and export a Markdown lab note. "
+        "It includes the preset, completed steps, mean and max elevation, and your answer.",
+    "请先勾选「我已阅读学习目标」。": "Check \"I have read the learning goals\" first.",
+    "请先载入预设「课堂实验-河流下切」。":
+        "Load the preset \"课堂实验-河流下切\" first.",
+    "四步顺序不对。应为：构造抬升 → PriorityFloodFlowRouter → FastscapeEroder → LinearDiffuser。":
+        "The four steps are out of order. Use uplift, then PriorityFloodFlowRouter, "
+        "then FastscapeEroder, then LinearDiffuser.",
+    "这次运行被中断了。请再完整跑一次，不要中途停止。":
+        "This run was stopped early. Run it again all the way through.",
+    "还没有完整跑完。请运行工作流，并等到它结束。":
+        "The run has not finished. Start it and wait until it ends.",
+    "请先打开地形高程，再打开坡度-面积。":
+        "Open terrain elevation first, then the slope-area plot.",
+    "请先选择一个答案。": "Choose an answer first.",
+    "请填写学生姓名。": "Enter the student name.",
+    "请导出实验记录。改过姓名后要重新导出。":
+        "Export the lab note. If you edit the name, export it again.",
+    "这一步还没完成。": "This step is not done yet.",
+    "回答正确": "Correct",
+    "留待课堂讲评": "Leave this for the class discussion",
+    "课堂实验记录": "Classroom lab note",
+    "学生: {0}": "Student: {0}",
+    "预设: {0}": "Preset: {0}",
+    "完成步数: {0}": "Steps completed: {0}",
+    "平均高程: {0} m": "Mean elevation: {0} m",
+    "最大高程: {0} m": "Max elevation: {0} m",
+    "选择题: {0}": "Answer: {0}",
+    "判断: {0}": "Mark: {0}",
+    "把这份记录交给老师。地形图和坡度-面积图可以在软件里截图附上。":
+        "Hand this note to your instructor. Screenshots of the terrain and slope-area plots can go with it.",
+}
+
+# 分类名英文
+_CATEGORY_EN = {
+    "水流与汇流": "Flow Routing", "洼地处理": "Depressions",
+    "河道侵蚀与沉积": "Channel Erosion", "坡面过程": "Hillslope",
+    "风化与土壤": "Weathering & Soil", "水文与气候": "Hydrology & Climate",
+    "滑坡与块体运动": "Landslides", "构造与地质": "Tectonics & Geology",
+    "生态与扰动": "Ecosystem", "海岸与海洋": "Coastal & Marine",
+    "河网泥沙输运": "Network Sediment", "示踪与浓度": "Tracers",
+    "泥沙粒径初始化": "Bed Parcel Init", "地形分析": "Terrain Analysis",
+    "其他": "Other",
+}
+
+
+# 英文模式下查不到译文而回退成中文的条目。正常运行不打扰用户，
+# 由 tests/test_i18n_completeness.py 断言其为空，防止以后新增界面文字漏翻。
+_untranslated_seen: set = set()
+_CJK_RE = None
+
+
+def untranslated_seen() -> set:
+    """英文模式下回退到中文原文的条目集合（用于回归测试，期望为空）。"""
+    return set(_untranslated_seen)
+
+
+def reset_untranslated():
+    _untranslated_seen.clear()
+
+
+def tr(s: str) -> str:
+    """界面文字翻译：英文模式查表，缺翻译回退中文原文。"""
+    if is_zh():
+        return s
+    hit = _STR_EN.get(s)
+    if hit is not None:
+        return hit
+    # 没查到：记下来（含中文的才值得记，纯符号/英文无需翻译）
+    global _CJK_RE
+    if _CJK_RE is None:
+        import re as _re
+        _CJK_RE = _re.compile(r"[\u4e00-\u9fff]")
+    if _CJK_RE.search(s):
+        _untranslated_seen.add(s)
+    return s
+
+
+def tr_cat(cat: str) -> str:
+    if is_zh():
+        return cat
+    return _CATEGORY_EN.get(cat, cat)
+
+
+def restart_command() -> list:
+    """返回重启应用的命令行（dev: python main.py；打包: exe 自身）。"""
+    import os
+    import sys
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "main.py")]
+
+
+# ============================================================ 组件目录
+def display_name(comp: str) -> str:
+    """组件显示名：中文模式返回 中文名(英文)，否则英文原名。"""
+    if not is_zh():
+        return comp
+    zh = COMPONENT_ZH.get(comp, {}).get("name")
+    return f"{zh} ({comp})" if zh else comp
+
+
+def short_name(comp: str) -> str:
+    return display_name(comp)
+
+
+def doc(comp: str, english_doc: str = "") -> str:
+    """组件说明文案。"""
+    if not is_zh():
+        return english_doc or COMPONENT_ZH.get(comp, {}).get("doc", "")
+    zh = COMPONENT_ZH.get(comp, {}).get("doc")
+    return zh or english_doc or ""
+
+
+def param_doc(comp: str, pname: str, english_doc: str = "") -> str:
+    """参数提示文案：优先中文释义，回退英文 docstring。"""
+    if is_zh():
+        zh = PARAM_ZH.get(comp, {}).get(pname)
+        if zh:
+            return zh
+    return english_doc
+
+
+def param_zh_label(comp: str, pname: str) -> str | None:
+    """参数的中文短释义（用于表单标签后缀），无翻译返回 None。"""
+    if not is_zh():
+        return None
+    return PARAM_ZH.get(comp, {}).get(pname)

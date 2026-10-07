@@ -1,0 +1,17 @@
+__pycache__/
+build/
+dist/
+*.spec
+gui_results*/
+dem_downloads/
+app/core/components_cache.json
+sweep_results*/
+export/
+*.pyc
+*.zip
+tests/soak_log.txt
+tests/soak_report.md
+.pytest_cache/
+.venv/
+Thumbs.db
+.DS_Store

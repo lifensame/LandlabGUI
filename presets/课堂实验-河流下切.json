@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "name": "课堂实验-河流下切",
+  "doc": "一节课用的小网格：抬升、汇流、河道下切、坡面扩散。默认不自动导出。",
+  "grid": {
+    "type": "RasterModelGrid",
+    "params": {
+      "shape": [30, 40],
+      "xy_spacing": 100.0
+    }
+  },
+  "boundary": "south_open",
+  "terrain": {
+    "mode": "noise",
+    "amplitude": 10.0,
+    "slope": 0.01,
+    "slope_dir": "S",
+    "seed": 42
+  },
+  "time": {
+    "dt": 250.0,
+    "n_steps": 40,
+    "refresh_every": 5,
+    "history_every": 2
+  },
+  "steps": [
+    {
+      "id": "u1",
+      "kind": "plugin",
+      "plugin": "构造抬升(4种模式)",
+      "params": {"mode": "uniform", "rate": 0.0005},
+      "when": "every_step"
+    },
+    {
+      "id": "f1",
+      "kind": "component",
+      "component": "PriorityFloodFlowRouter",
+      "params": {"flow_metric": "D8"},
+      "when": "every_step"
+    },
+    {
+      "id": "e1",
+      "kind": "component",
+      "component": "FastscapeEroder",
+      "params": {
+        "K_sp": 1e-05,
+        "m_sp": 0.5,
+        "n_sp": 1.0,
+        "threshold_sp": 0.0
+      },
+      "when": "every_step",
+      "step_style": "run_one_step"
+    },
+    {
+      "id": "d1",
+      "kind": "component",
+      "component": "LinearDiffuser",
+      "params": {"linear_diffusivity": 0.01},
+      "when": "every_step",
+      "step_style": "run_one_step"
+    }
+  ]
+}

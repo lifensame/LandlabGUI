@@ -1,0 +1,102 @@
+{
+ "version": 1,
+ "name": "快速测试",
+ "doc": "1分钟内跑完的小网格演示 (教程 fast_test)",
+ "grid": {
+  "type": "RasterModelGrid",
+  "params": {
+   "shape": [
+    30,
+    40
+   ],
+   "xy_spacing": 100.0
+  }
+ },
+ "boundary": "south_open",
+ "terrain": {
+  "mode": "noise",
+  "amplitude": 10.0,
+  "slope": 0.01,
+  "slope_dir": "S",
+  "seed": 42
+ },
+ "time": {
+  "dt": 250.0,
+  "n_steps": 80,
+  "refresh_every": 5,
+  "history_every": 2
+ },
+ "steps": [
+  {
+   "id": "u1",
+   "kind": "plugin",
+   "plugin": "构造抬升(4种模式)",
+   "params": {
+    "mode": "uniform"
+   },
+   "when": "every_step"
+  },
+  {
+   "id": "f1",
+   "kind": "component",
+   "component": "PriorityFloodFlowRouter",
+   "params": {
+    "flow_metric": "D8"
+   },
+   "when": "every_step"
+  },
+  {
+   "id": "e1",
+   "kind": "component",
+   "component": "FastscapeEroder",
+   "params": {
+    "K_sp": 1e-05,
+    "m_sp": 0.5,
+    "n_sp": 1.0,
+    "threshold_sp": 0.0
+   },
+   "when": "every_step",
+   "step_style": "run_one_step"
+  },
+  {
+   "id": "d1",
+   "kind": "component",
+   "component": "LinearDiffuser",
+   "params": {
+    "linear_diffusivity": 0.01
+   },
+   "when": "every_step",
+   "step_style": "run_one_step"
+  },
+  {
+   "id": "c1",
+   "kind": "component",
+   "component": "ChiFinder",
+   "params": {
+    "min_drainage_area": 10000.0,
+    "reference_concavity": 0.5
+   },
+   "when": "once_at_end",
+   "step_style": "analysis"
+  },
+  {
+   "id": "s1",
+   "kind": "component",
+   "component": "SteepnessFinder",
+   "params": {
+    "min_drainage_area": 10000.0,
+    "reference_concavity": 0.5
+   },
+   "when": "once_at_end",
+   "step_style": "analysis"
+  }
+ ],
+ "outputs": {
+  "dir": "gui_results_快速测试",
+  "formats": [
+   "ascii",
+   "netcdf"
+  ],
+  "river_min_area": 100000.0
+ }
+}
