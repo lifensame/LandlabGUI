@@ -129,11 +129,34 @@ landlab_gui/
 
 ## 打包 exe
 
+在 Windows 上可以用 PyInstaller：
+
 ```powershell
 pip install pyinstaller
 python build_exe.py
 # 产物在 dist/LandlabGUI/，双击 LandlabGUI.exe
 ```
+
+已经打好的 Windows 安装包约 175 MB，仓库单文件上限是 100 MB，所以分成两段放在 `release/`。拼回去再双击安装，然后从开始菜单打开 LandlabGUI。
+
+```powershell
+cmd /c copy /b release\LandlabGUI-2.2.0-win64-setup.exe.part00+release\LandlabGUI-2.2.0-win64-setup.exe.part01 release\LandlabGUI-2.2.0-win64-setup.exe
+```
+
+```bash
+cat release/LandlabGUI-2.2.0-win64-setup.exe.part00 release/LandlabGUI-2.2.0-win64-setup.exe.part01 > release/LandlabGUI-2.2.0-win64-setup.exe
+```
+
+拼好后的 SHA256 应为 `af6bd6fcf3a6ac2fc0512477089e6a0ce093febba399cd97c439bce7e53f53e2`。
+
+在 Linux 上可以重新打出这个安装包（自带 Python 3.12 和依赖）：
+
+```bash
+python packaging/build_windows_installer.py
+# 产物 dist/LandlabGUI-2.2.0-win64-setup.exe
+```
+
+安装后从开始菜单打开 LandlabGUI。预设、插件和讲义在安装目录里，可以改。
 
 ## 测试
 
