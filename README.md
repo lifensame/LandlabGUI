@@ -1,12 +1,16 @@
 # Landlab 地貌模拟工作台 / Landlab Geomorphology Workbench
 
-当前版本：**v2.1.2**（[更新日志](https://github.com/lifensame/LandlabGUI/releases)）
+当前版本：**v2.2.0**（[更新日志](https://github.com/lifensame/LandlabGUI/releases)）
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Landlab](https://img.shields.io/badge/built%20on-landlab%202.x-blueviolet)
 ![Python](https://img.shields.io/badge/python-3.10%2B-informational)
 ![GUI](https://img.shields.io/badge/GUI-PySide6-green)
-![Version](https://img.shields.io/badge/version-v2.1.2-brightgreen)
+![Version](https://img.shields.io/badge/version-v2.2.0-brightgreen)
+
+**给谁用：** 地貌学、自然地理课上的学生，以及带实验课的大学老师。
+第一次打开进入课堂实验「河流怎么切开山地」：不写代码，走完抬升、汇流、下切、扩散，看地形和坡度-面积，并导出一份实验记录。老师用同一份预设和[课堂讲义](docs/课堂实验-河流下切.md)。
+87 个组件、参数扫描、AI 助手和插件仍在菜单里，作为进阶。目标说明见 [docs/课堂目标.md](docs/课堂目标.md)。
 
 为 [Landlab](https://landlab.csdms.io/) 2.x 打造的可视化桌面工作台（PySide6，中文/English 双语界面）。
 A visual desktop workbench for the [Landlab](https://landlab.csdms.io/) landscape evolution framework — no coding required: build workflows from 87 components, run real-time simulations, analyze and export GIS data.
@@ -29,6 +33,9 @@ A visual desktop workbench for the [Landlab](https://landlab.csdms.io/) landscap
 
 - **全量 87 个 landlab 组件**：自省引擎自动读取每个组件的构造参数、docstring 文档和
   字段依赖（单位/位置/必填），动态生成参数表单 —— 不需要为任何组件手写界面
+- **课堂实验**：帮助菜单「课堂实验」带学生走完「河流怎么切开山地」。预设
+  `课堂实验-河流下切` 用小网格，默认不自动导出。讲义见
+  [docs/课堂实验-河流下切.md](docs/课堂实验-河流下切.md)
 - **场景预设**：内置教程全部 6 个场景（快速测试 / 稳态河道 / 青藏场景 / 硬岩 / 软岩 /
   非线性侵蚀），双击载入、一键运行
 - **科研分析三件套**：
@@ -42,7 +49,7 @@ A visual desktop workbench for the [Landlab](https://landlab.csdms.io/) landscap
 - **代码编辑器**：GUI 内写 Python 片段直接运行（共享当前网格上下文），可另存为插件
 - **后台运行**：模拟/导出/扫描全在独立线程，随时可停止
 - **体验**：深色主题；布局与最近文件记忆（下次启动自动恢复）；
-  新手引导向导（首次启动自动弹出，帮助菜单可重看）；独立导出菜单（随时导出当前状态）
+  第一次启动进入课堂实验，新手引导留在帮助菜单里；独立导出菜单（随时导出当前状态）
 - **DEM 导入**：ESRI ASCII (.asc)；**在线真实DEM**：按地名（如"Mount Hua"、富士山）
   或经纬度范围下载全球真实地形（SRTM/Copernicus，免密钥，可配代理），下载即建网格，
   并自动存成 `.asc` 保存在 `dem_downloads/`（可直接再导入；菜单"网格 → 打开DEM下载文件夹"直达）；
@@ -94,6 +101,7 @@ landlab_gui/
 │   │   ├── report.py          # 一键实验报告
 │   │   ├── animate.py         # 演化动画导出
 │   │   ├── plots.py           # 纯 matplotlib 绘图（画布/报告共用）
+│   │   ├── classroom.py       # 课堂实验进度（不依赖 Qt）
 │   │   ├── i18n.py            # 中英双语（界面文字 tr 表 + 语言状态）
 │   │   ├── zh_catalog.py      # 87 组件中文名/说明/参数释义目录
 │   │   └── api.py             # @plugin 装饰器
@@ -108,6 +116,7 @@ landlab_gui/
 │   │   ├── dem_dialog.py      # 在线DEM下载对话框
 │   │   ├── sweep_dialog.py    # 参数扫描配置与结果窗口
 │   │   ├── history_panel.py   # 运行历史（快照/A-B对比/回滚）
+│   │   ├── classroom_lab.py   # 课堂实验停靠条（河流下切）
 │   │   ├── wizard.py          # 新手引导向导
 │   │   ├── style.py           # 深色主题（QSS+matplotlib 配色）
 │   │   └── console.py         # 控制台
@@ -120,11 +129,24 @@ landlab_gui/
 
 ## 打包 exe
 
+在 Windows 上可以用 PyInstaller：
+
 ```powershell
 pip install pyinstaller
 python build_exe.py
 # 产物在 dist/LandlabGUI/，双击 LandlabGUI.exe
 ```
+
+已经打好的 Windows 安装包约 175 MB，在 [v2.2.0 Release](https://github.com/lifensame/LandlabGUI/releases/tag/v2.2.0) 下载 `LandlabGUI-2.2.0-win64-setup.exe`，双击安装，然后从开始菜单打开 LandlabGUI。安装包 SHA256 为 `af6bd6fcf3a6ac2fc0512477089e6a0ce093febba399cd97c439bce7e53f53e2`。
+
+在 Linux 上可以重新打出这个安装包（自带 Python 3.12 和依赖）：
+
+```bash
+python packaging/build_windows_installer.py
+# 产物 dist/LandlabGUI-2.2.0-win64-setup.exe
+```
+
+安装后从开始菜单打开 LandlabGUI。预设、插件和讲义在安装目录里，可以改。
 
 ## 测试
 
@@ -138,6 +160,7 @@ QT_QPA_PLATFORM=offscreen python tests/test_engine_run_state_fixes.py
 QT_QPA_PLATFORM=offscreen python tests/test_dem_download_fixes.py
 QT_QPA_PLATFORM=offscreen python tests/test_export_netcdf_path.py
 QT_QPA_PLATFORM=offscreen python tests/test_i18n_completeness.py
+QT_QPA_PLATFORM=offscreen python tests/test_classroom_lab.py
 ```
 
 ## 教程对应关系

@@ -604,6 +604,111 @@ _STR_EN = {
     "您当前运行的是最新版本 Landlab 地貌模拟工作台 (":
         "You are running the latest Landlab Geomorphology Workbench (",
     "最新发行版: ": "Latest release: ",
+
+    # ---- 课堂实验 ----
+    "课堂实验": "Classroom Lab",
+    "课堂实验: 打开帮助菜单里的「课堂实验」，用一节课走完河流下切；想自己探索可看「新手引导」。":
+        "Classroom lab: open Help → Classroom Lab for the river-incision lesson; "
+        "Help → Getting Started is the self-paced tour.",
+    "主要给上课的学生和大学老师：帮助菜单里的课堂实验是一节河流下切课。":
+        "Built first for students and the instructor: Help → Classroom Lab is one river-incision class.",
+    "预设未找到": "Preset Not Found",
+    "没有找到名为「{0}」的预设。": "No preset named \"{0}\" was found.",
+    "河流怎么切开山地": "How rivers cut a mountain",
+    "给上课的学生和带实验的老师。做完四步过程、看完两张图，再交一份记录。":
+        "For students in class and the instructor running the lab. "
+        "Finish the four processes, look at two plots, then hand in a note.",
+    "我已阅读学习目标": "I have read the learning goals",
+    "汇水面积越大，河道坡度总体越缓":
+        "Larger drainage area goes with a gentler channel slope",
+    "汇水面积越大，河道坡度总体越陡":
+        "Larger drainage area goes with a steeper channel slope",
+    "坡度和汇水面积没有关系": "Slope and drainage area are unrelated",
+    "学生姓名": "Student name",
+    "交给老师的名字": "Name to hand in",
+    "载入课堂预设": "Load classroom preset",
+    "开始运行": "Start run",
+    "导出实验记录": "Export lab note",
+    "检查进度": "Check progress",
+    "自己探索": "Explore on my own",
+    "打开老师讲义": "Open instructor notes",
+    "课堂实验完成": "Classroom lab complete",
+    "可以交作业了": "Ready to hand in",
+    "记录里已经有预设名、完成步数、平均高程、最大高程和你的选择。把文件交给老师。想继续试参数，可以用左侧组件库。":
+        "The note has the preset name, completed steps, mean and max elevation, and your answer. "
+        "Hand the file to your instructor. The component library is there if you want to change parameters.",
+    "第 {0} / {1} 步": "Step {0} / {1}",
+    "Markdown (*.md)": "Markdown (*.md)",
+    "实验记录已导出: {0}": "Lab note exported: {0}",
+    "已离开课堂实验，下面是原来的新手引导。":
+        "Left the classroom lab. The short getting-started tour is next.",
+    "找不到老师讲义。": "Instructor notes were not found.",
+    "学习目标": "Learning goals",
+    "载入预设": "Load the preset",
+    "看懂四步": "Read the four steps",
+    "运行模拟": "Run the model",
+    "看图": "Look at the plots",
+    "选择题": "Check question",
+    "实验记录": "Lab note",
+    "这节课给地貌学或自然地理课的学生，也给带实验的老师。\n\n做完后你应该能说出四件事：\n· 构造抬升把地面抬高\n· 汇流算出水往哪流、汇水面积有多大\n· 河道下切沿水路切出河谷\n· 坡面扩散把陡坡变缓\n\n最后看坡度-面积图：河道段通常是汇水面积越大、坡度越缓。":
+        "This class is for geomorphology or physical-geography students, and for the instructor.\n\n"
+        "By the end you should be able to say four things:\n"
+        "· Tectonic uplift raises the land\n"
+        "· Flow routing finds where water goes and how large the drainage area is\n"
+        "· Channel incision cuts valleys along those paths\n"
+        "· Hillslope diffusion softens steep slopes\n\n"
+        "On the slope-area plot, channel points usually get gentler as drainage area grows.",
+    "点「载入课堂预设」，或在左侧「场景预设」里双击「课堂实验-河流下切」。\n这个预设用小网格，一节课里几十秒可以跑完，并且不会自动导出文件。":
+        "Click Load classroom preset, or double-click \"课堂实验-河流下切\" under Presets.\n"
+        "It uses a small grid, finishes in well under a minute, and does not auto-export files.",
+    "工作流里应依次是：\n1. 构造抬升(4种模式) — 每个时间步把地面抬高一点\n2. PriorityFloodFlowRouter — 算出水流路径和汇水面积\n3. FastscapeEroder — 沿着河道向下切\n4. LinearDiffuser — 坡面上的土石慢慢摊平":
+        "The workflow should run in this order:\n"
+        "1. Tectonic uplift (4 modes) — raises the land a little each step\n"
+        "2. PriorityFloodFlowRouter — computes flow paths and drainage area\n"
+        "3. FastscapeEroder — cuts down along channels\n"
+        "4. LinearDiffuser — slowly smoothes soil on hillslopes",
+    "点「开始运行」，或按 F5。等到控制台写出运行完成。\n中途停止的话，这步不算完成，需要再完整跑一次。":
+        "Click Start run, or press F5. Wait until the console says the run finished.\n"
+        "Stopping halfway does not count; run it through to the end.",
+    "右侧画布已经停在地形高程。先看山谷有没有被切出来，再点「坡度-面积」。先看地形、再看坡度-面积，这步才通过。":
+        "The canvas is on terrain elevation. Look for cut valleys, then open Slope-area. "
+        "Terrain first, slope-area second: that is what this step checks.",
+    "河道段在坡度-面积图上，大致是什么关系？":
+        "On the slope-area plot, what happens along the channel points?",
+    "写下你的姓名，导出 Markdown 实验记录。里面会有预设名、完成步数、平均和最大高程，以及你选的答案。":
+        "Type your name and export a Markdown lab note. "
+        "It includes the preset, completed steps, mean and max elevation, and your answer.",
+    "请先勾选「我已阅读学习目标」。": "Check \"I have read the learning goals\" first.",
+    "请先载入预设「课堂实验-河流下切」。":
+        "Load the preset \"课堂实验-河流下切\" first.",
+    "四步顺序不对。应为：构造抬升 → PriorityFloodFlowRouter → FastscapeEroder → LinearDiffuser。":
+        "The four steps are out of order. Use uplift, then PriorityFloodFlowRouter, "
+        "then FastscapeEroder, then LinearDiffuser.",
+    "这次运行被中断了。请再完整跑一次，不要中途停止。":
+        "This run was stopped early. Run it again all the way through.",
+    "还没有完整跑完。请运行工作流，并等到它结束。":
+        "The run has not finished. Start it and wait until it ends.",
+    "这次完成的不是课堂预设。请再运行「课堂实验-河流下切」。":
+        "The finished run was not the classroom preset. Run \"课堂实验-河流下切\" again.",
+    "请先打开地形高程，再打开坡度-面积。":
+        "Open terrain elevation first, then the slope-area plot.",
+    "请先选择一个答案。": "Choose an answer first.",
+    "请填写学生姓名。": "Enter the student name.",
+    "请导出实验记录。改过姓名后要重新导出。":
+        "Export the lab note. If you edit the name, export it again.",
+    "这一步还没完成。": "This step is not done yet.",
+    "回答正确": "Correct",
+    "留待课堂讲评": "Leave this for the class discussion",
+    "课堂实验记录": "Classroom lab note",
+    "学生: {0}": "Student: {0}",
+    "预设: {0}": "Preset: {0}",
+    "完成步数: {0}": "Steps completed: {0}",
+    "平均高程: {0} m": "Mean elevation: {0} m",
+    "最大高程: {0} m": "Max elevation: {0} m",
+    "选择题: {0}": "Answer: {0}",
+    "判断: {0}": "Mark: {0}",
+    "把这份记录交给老师。地形图和坡度-面积图可以在软件里截图附上。":
+        "Hand this note to your instructor. Screenshots of the terrain and slope-area plots can go with it.",
 }
 
 # 分类名英文

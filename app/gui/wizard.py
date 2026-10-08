@@ -86,14 +86,7 @@ class WelcomeWizard(QDialog):
 
     def _finish(self):
         if self.mw is not None and self.stack.currentIndex() == len(_PAGES) - 1:
-            # 完成时顺手载入快速测试预设，让用户立刻能跑
-            try:
-                lw = self.mw.preset_list
-                for i in range(lw.count()):
-                    if lw.item(i).text() == "快速测试":
-                        lw.setCurrentRow(i)
-                        self.mw._load_preset(lw.item(i))
-                        break
-            except Exception:
-                pass
+            # 走完引导才记为看过；载入失败时由主窗口提示，不再静默跳过
+            self.mw.settings.setValue("wizard_seen", True)
+            self.mw.load_preset_by_name("快速测试")
         self.accept()

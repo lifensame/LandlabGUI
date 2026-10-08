@@ -59,6 +59,9 @@ class MainWindow(QMainWindow):
         self._frame_vlims = [None, None]  # 全程稳定的色标范围
         self._frame_bytes = 0             # 帧内存占用（float32 字节数）
         self.recent_files: list[str] = []
+        self._closing = False
+        self.lab_dock = None
+        self.lab_panel = None
 
         # ---- 面板 ----
         self.console = ConsolePanel()
@@ -85,12 +88,13 @@ class MainWindow(QMainWindow):
         self._boot_queue.clear()
         self.log(tr("Landlab 地貌模拟工作台已启动（深色主题）"))
         self.log(tr("组件库: {0} 个 landlab 组件, {1} 个自定义插件").format(len(self.registry.schemas), len(self.registry.plugins)))
-        self.log(tr("快速上手: 双击左下【快速测试】预设 → 按 F5 或点【开始运行工作流】；不熟悉可看 菜单[帮助→新手引导]"))
+        self.log(tr("课堂实验: 打开帮助菜单里的「课堂实验」，用一节课走完河流下切；想自己探索可看「新手引导」。"))
 
-        if not self.settings.value("wizard_seen", False, bool):
-            self.settings.setValue("wizard_seen", True)
-            from .wizard import WelcomeWizard
-            WelcomeWizard(self).exec()
+        # 走完课堂实验或明确跳过之后才记 classroom_seen。旧的 wizard_seen
+        # 只说明看过原来的引导，避免测试和老用户每次启动都被拦住。
+        if (not self.settings.value("classroom_seen", False, bool)
+                and not self.settings.value("wizard_seen", False, bool)):
+            QTimer.singleShot(0, self, self.open_classroom_lab)
 
         # 启动 3 秒后静默检查更新（仅在存在新版本时友好提醒）
         QTimer.singleShot(3000, lambda: self.check_for_updates(interactive=False))
@@ -142,6 +146,7 @@ class MainWindow(QMainWindow):
         tabs.addTab(self.history_panel, tr("运行历史"))
 
         dock = QDockWidget(tr("组件与预设"), self)
+        dock.setObjectName("components_dock")
         dock.setWidget(tabs)
         dock.setFeatures(QDockWidget.DockWidgetMovable)
         self.addDockWidget(Qt.LeftDockWidgetArea, dock)
@@ -205,6 +210,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(splitter)
 
         dock = QDockWidget(tr("控制台"), self)
+        dock.setObjectName("console_dock")
         dock.setWidget(self.console)
         dock.setFeatures(QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable)
         self.addDockWidget(Qt.BottomDockWidgetArea, dock)
@@ -284,6 +290,9 @@ class MainWindow(QMainWindow):
 
         # ---- 帮助菜单 ----
         m_help = self.menuBar().addMenu(tr("帮助(&H)"))
+        act_lab = QAction(tr("课堂实验"), self)
+        act_lab.triggered.connect(self.open_classroom_lab)
+        m_help.addAction(act_lab)
         act_wiz = QAction(tr("新手引导"), self)
         act_wiz.triggered.connect(lambda: self._show_wizard())
         m_help.addAction(act_wiz)
@@ -300,6 +309,7 @@ class MainWindow(QMainWindow):
         act_about.triggered.connect(lambda: QMessageBox.about(
             self, tr("关于"),
             f"<b>Landlab Geomorphology Workbench</b> v{__version__}<br>" + tr("Landlab 地貌模拟工作台") +
+            "<br>" + tr("主要给上课的学生和大学老师：帮助菜单里的课堂实验是一节河流下切课。") +
             "<br><br>87 components · plugins · parameter sweep · reports<br>"
             "PySide6 · Landlab 2.x<br><br>"
             "<a href='https://github.com/lifensame/LandlabGUI'>https://github.com/lifensame/LandlabGUI</a>"))
@@ -420,12 +430,14 @@ class MainWindow(QMainWindow):
         self._rebuild_recent_menu()
 
     def closeEvent(self, ev):
+        self._closing = True
         workers = [self.worker, self.func_worker, self.anim_worker,
                    getattr(self, "sweep_worker", None)]
         if any(w is not None and w.isRunning() for w in workers):
             r = QMessageBox.question(self, tr("正在运行"), tr("有任务仍在后台运行，确定退出？"),
                                      QMessageBox.Yes | QMessageBox.No)
             if r != QMessageBox.Yes:
+                self._closing = False
                 ev.ignore()
                 return
             for w in workers:
@@ -584,7 +596,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, tr("忙碌"), tr("有任务正在后台运行，请等待或停止"))
             return
         if not self.workflow_panel.rebuild_check.isChecked() and not self.ws.has_grid:
-            QMessageBox.warning(self, "缺少网格",
+            QMessageBox.warning(self, tr("缺少网格"),
                                 tr("请先 菜单[网格]->新建网格，或载入预设（运行时自动建网格）"))
             return
         if not self.workflow_panel.steps:
@@ -746,6 +758,9 @@ class MainWindow(QMainWindow):
                     wf.get("name", "未命名"), z, self.ws.grid_info, wf, self.ws.history)
         self.worker = None
         self._update_status_pills()
+        panel = getattr(self, "lab_panel", None)
+        if panel is not None:
+            panel.refresh()
 
     # ================================================== 独立导出
     def export_current(self):
@@ -936,14 +951,51 @@ class MainWindow(QMainWindow):
         self._add_recent(path)
         self._update_status_pills()
 
-    def _load_preset(self, item):
-        wf = self.presets.get(item.text())
+    def load_preset_by_name(self, name: str) -> bool:
+        """按工作流 name 载入预设。找不到时提示，不再静默返回。"""
+        wf = self.presets.get(name)
         if not wf:
-            return
+            QMessageBox.warning(
+                self, tr("预设未找到"),
+                tr("没有找到名为「{0}」的预设。").format(name))
+            return False
+        for i in range(self.preset_list.count()):
+            item = self.preset_list.item(i)
+            if item is not None and item.text() == name:
+                self.preset_list.setCurrentRow(i)
+                break
         self.workflow_panel.load_workflow(wf)
-        self.log(tr("已载入预设: {0} —— {1}").format(item.text(), wf.get("doc", "")))
+        self.log(tr("已载入预设: {0} —— {1}").format(name, wf.get("doc", "")))
         self.log(tr("按 F5 或点【开始运行工作流】即可（预设会自动建网格）"))
         self._update_status_pills()
+        panel = getattr(self, "lab_panel", None)
+        if panel is not None:
+            panel.refresh()
+        return True
+
+    def _load_preset(self, item):
+        if item is None:
+            return
+        self.load_preset_by_name(item.text())
+
+    def open_classroom_lab(self):
+        """打开课堂实验停靠条。第一次启动和帮助菜单共用。"""
+        if getattr(self, "_closing", False):
+            return
+        first = self.lab_panel is None
+        if first:
+            from .classroom_lab import ClassroomLabPanel
+            self.lab_panel = ClassroomLabPanel(self)
+            self.lab_dock = QDockWidget(tr("课堂实验"), self)
+            self.lab_dock.setObjectName("classroom_lab")
+            self.lab_dock.setWidget(self.lab_panel)
+            self.lab_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+            self.addDockWidget(Qt.RightDockWidgetArea, self.lab_dock)
+        self.lab_dock.show()
+        self.lab_dock.raise_()
+        if first:
+            self.lab_dock.setFloating(True)
+            self.lab_dock.resize(480, 640)
 
     # ================================================== 插件/帮助
     def reload_plugins(self):
@@ -951,8 +1003,12 @@ class MainWindow(QMainWindow):
         self._fill_tree(self.search.text())
         self.log(tr("插件已重载: 共 {0} 个自定义功能").format(len(self.registry.plugins)))
 
+    def open_local_path(self, path: str):
+        """用桌面环境打开文件或目录。"""
+        QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.abspath(path)))
+
     def open_plugin_dir(self):
-        os.startfile(plugins_dir(APP_ROOT))
+        self.open_local_path(plugins_dir(APP_ROOT))
 
     def open_dem_dir(self):
         """打开 DEM 下载保存目录（没有文件时也打开，便于用户确认位置）。"""
@@ -1026,7 +1082,7 @@ class MainWindow(QMainWindow):
     def _open_plugin_doc(self):
         doc = os.path.join(APP_ROOT, "docs", "插件开发指南.md")
         if os.path.exists(doc):
-            os.startfile(doc)
+            self.open_local_path(doc)
 
     def _set_status(self, text: str):
         self.status_label.setText(f" {text} ")

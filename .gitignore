@@ -1,6 +1,8 @@
 __pycache__/
 build/
 dist/
+packaging/wheels/
+release/*.exe
 *.spec
 gui_results*/
 dem_downloads/
