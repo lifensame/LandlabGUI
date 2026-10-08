@@ -130,6 +130,7 @@ class ClassroomLabPanel(QWidget):
             "steps": workflow_steps(panel.steps),
             "steps_done": int(getattr(self.mw.ws, "steps_done", 0) or 0),
             "interrupted": bool(getattr(self.mw.ws, "interrupted", False)),
+            "completed_name": getattr(self.mw.ws, "completed_name", None) or "",
             "tab_sequence": list(self.tab_sequence),
             "quiz_index": self._quiz_index,
             "student_name": self.name_edit.text(),
@@ -330,6 +331,8 @@ class ClassroomLabPanel(QWidget):
             return tr("这次运行被中断了。请再完整跑一次，不要中途停止。")
         if code == "run_none":
             return tr("还没有完整跑完。请运行工作流，并等到它结束。")
+        if code == "run_other":
+            return tr("这次完成的不是课堂预设。请再运行「课堂实验-河流下切」。")
         if code == "views":
             return tr("请先打开地形高程，再打开坡度-面积。")
         if code == "quiz":

@@ -28,7 +28,7 @@
       "id": "u1",
       "kind": "plugin",
       "plugin": "构造抬升(4种模式)",
-      "params": {"mode": "uniform", "rate": 0.0005},
+      "params": {"mode": "uniform", "rate": 0.0001},
       "when": "every_step"
     },
     {
@@ -43,7 +43,7 @@
       "kind": "component",
       "component": "FastscapeEroder",
       "params": {
-        "K_sp": 1e-05,
+        "K_sp": 0.0005,
         "m_sp": 0.5,
         "n_sp": 1.0,
         "threshold_sp": 0.0
@@ -55,7 +55,7 @@
       "id": "d1",
       "kind": "component",
       "component": "LinearDiffuser",
-      "params": {"linear_diffusivity": 0.01},
+      "params": {"linear_diffusivity": 0.005},
       "when": "every_step",
       "step_style": "run_one_step"
     }

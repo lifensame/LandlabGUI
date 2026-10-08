@@ -688,6 +688,8 @@ _STR_EN = {
         "This run was stopped early. Run it again all the way through.",
     "还没有完整跑完。请运行工作流，并等到它结束。":
         "The run has not finished. Start it and wait until it ends.",
+    "这次完成的不是课堂预设。请再运行「课堂实验-河流下切」。":
+        "The finished run was not the classroom preset. Run \"课堂实验-河流下切\" again.",
     "请先打开地形高程，再打开坡度-面积。":
         "Open terrain elevation first, then the slope-area plot.",
     "请先选择一个答案。": "Choose an answer first.",

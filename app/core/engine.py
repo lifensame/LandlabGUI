@@ -84,6 +84,9 @@ class Engine:
     def run(self, wf: dict):
         log = self.log
         ws = self.ws
+        # 放在建网格之前：这次一旦开始，上一次的完成结果就不能再算数。
+        # 否则建网格失败时，课堂进度会把更早的另一次运行当成已经做完。
+        ws.completed_name = None
         log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
 
         # 1) 网格（grid_rebuild=False 表示沿用当前网格，仅在无网格时报错）
@@ -121,6 +124,7 @@ class Engine:
             ws.history.clear()
             ws.steps_done = 0
             ws.interrupted = False
+            ws.completed_name = None
             # 4) 启动前一次性步骤
             for s in start_steps:
                 self._exec_step(s, comps, dt=dt)
@@ -147,6 +151,7 @@ class Engine:
 
             if not self._stopped():
                 log(tr("=== 运行完成 ==="))
+                ws.completed_name = wf.get("name") or ""
             z = ws.at_node["topographic__elevation"]
             log(tr("最终地形: 平均 {0} m, 最大 {1} m").format(f"{np.nanmean(z):.1f}", f"{np.nanmax(z):.1f}"))
             self._snapshot()

@@ -26,6 +26,7 @@ def _snap(**kwargs):
         "steps": [],
         "steps_done": 0,
         "interrupted": False,
+        "completed_name": "",
         "tab_sequence": [],
         "quiz_index": None,
         "student_name": "",
@@ -67,11 +68,18 @@ def test_2_run_must_finish_before_views():
 
     snap["steps_done"] = 10
     snap["interrupted"] = True
+    snap["completed_name"] = PRESET_NAME
     ok, code = gate("run", snap)
     assert not ok and code == "run_interrupted"
     assert current_step(snap) == 3
 
     snap["interrupted"] = False
+    snap["completed_name"] = "快速测试"
+    ok, code = gate("run", snap)
+    assert not ok and code == "run_other"
+    assert current_step(snap) == 3
+
+    snap["completed_name"] = PRESET_NAME
     assert current_step(snap) == 4
     assert not views_ok([TAB_SLOPE_AREA, TAB_TERRAIN])
     assert views_ok([TAB_TERRAIN, TAB_SLOPE_AREA])
@@ -106,6 +114,7 @@ def test_3_lab_note_contains_results():
         workflow_name=PRESET_NAME,
         steps=list(PROCESS_STEPS),
         steps_done=40,
+        completed_name=PRESET_NAME,
         tab_sequence=[TAB_TERRAIN, TAB_SLOPE_AREA],
         quiz_index=0,
         student_name="林夏",
@@ -128,7 +137,8 @@ def test_4_preset_file_is_the_classroom_workflow():
 
 
 def test_5_offscreen_lab_walkthrough():
-    import numpy as np
+    import time
+
     from PySide6.QtCore import QSettings
     from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -182,12 +192,29 @@ def test_5_offscreen_lab_walkthrough():
 
         win.ws.steps_done = 40
         win.ws.interrupted = False
-
-        class _Grid:
-            at_node = {"topographic__elevation": np.array([10.0, 12.0, 30.0])}
-
-        win.ws.set_grid(_Grid(), {"type": "classroom-test", "params": {}})
+        win.ws.completed_name = "快速测试"
         panel.refresh()
+        assert current_step(panel.snapshot()) == 3
+
+        panel._start_run()
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            app.processEvents()
+            finished = (
+                win.ws.completed_name == PRESET_NAME
+                and (win.worker is None or not win.worker.isRunning())
+            )
+            if finished:
+                break
+            time.sleep(0.02)
+        else:
+            raise AssertionError(
+                "课堂预设没有跑完: "
+                f"completed={win.ws.completed_name!r} steps={win.ws.steps_done} "
+                f"interrupted={win.ws.interrupted}"
+            )
+        app.processEvents()
+        assert win.ws.steps_done == 40
         assert current_step(panel.snapshot()) == 4
         assert panel.tab_sequence[0] == TAB_TERRAIN
 
@@ -208,8 +235,8 @@ def test_5_offscreen_lab_walkthrough():
         assert os.path.exists(out)
         assert PRESET_NAME in text
         assert "40" in text
-        assert "17.3" in text
-        assert "30.0" in text
+        assert "5.0" in text
+        assert "38.9" in text
         assert "汇水面积越大，河道坡度总体越缓" in text
         assert current_step(panel.snapshot()) == len(STEP_IDS)
         assert settings.value("classroom_seen", False, bool)
@@ -229,6 +256,67 @@ def test_5_offscreen_lab_walkthrough():
         settings.setValue("classroom_seen", True)
 
 
+def test_6_classroom_preset_cuts_a_declining_channel():
+    """学生看到的坡度-面积必须向右下，而且只有这次跑完的课堂预设才算完成。"""
+    import copy
+
+    import numpy as np
+
+    from app.core.engine import Engine
+    from app.core.plugin_loader import load_plugins
+    from app.core.plots import slope_area_binned
+    from app.core.workspace import Workspace
+
+    path = os.path.join(APP_DIR, "presets", "课堂实验-河流下切.json")
+    with open(path, encoding="utf-8") as handle:
+        wf = json.load(handle)
+
+    ws = Workspace()
+    ws.completed_name = "快速测试"
+    ws.steps_done = 9
+    plugins = load_plugins(log=lambda _s: None)
+    Engine(ws, plugins, log=lambda _s: None, snapshot=lambda: None).run(copy.deepcopy(wf))
+
+    assert ws.completed_name == PRESET_NAME
+    assert ws.steps_done == wf["time"]["n_steps"]
+    assert not ws.interrupted
+    z = np.asarray(ws.at_node["topographic__elevation"], dtype=float)
+    mean_z = float(np.nanmean(z))
+    max_z = float(np.nanmax(z))
+    assert 2.0 < mean_z < 12.0, mean_z
+    assert 25.0 < max_z < 50.0, max_z
+
+    slope = np.asarray(ws.grid.calc_slope_at_node(), dtype=float)
+    area = np.asarray(ws.at_node["drainage_area"], dtype=float)
+    mask = (area > 2e4) & np.isfinite(slope) & (slope > 0)
+    assert int(mask.sum()) > 30
+    corr = float(np.corrcoef(np.log10(area[mask]), np.log10(slope[mask]))[0, 1])
+    binned = slope_area_binned(ws, a_min=2e4)
+    bin_slope = None
+    if binned is not None:
+        a_med, s_med = binned
+        bin_slope = float(np.polyfit(np.log10(a_med), np.log10(s_med), 1)[0])
+    print(
+        f"课堂预设: mean={mean_z:.2f} max={max_z:.2f} "
+        f"corr={corr:.3f} bin={bin_slope} n={int(mask.sum())}",
+        flush=True,
+    )
+    assert corr < -0.2, corr
+    assert bin_slope is not None and bin_slope < -0.1, bin_slope
+
+    class _StopNow:
+        def __call__(self):
+            return True
+
+    stopped = Workspace()
+    stopped.completed_name = PRESET_NAME
+    stopped.steps_done = 40
+    Engine(stopped, plugins, log=lambda _s: None, snapshot=lambda: None,
+           stop_flag=_StopNow()).run(copy.deepcopy(wf))
+    assert stopped.interrupted
+    assert stopped.completed_name is None
+
+
 if __name__ == "__main__":
     tests = [
         test_1_wrong_order_does_not_advance,
@@ -236,6 +324,7 @@ if __name__ == "__main__":
         test_3_lab_note_contains_results,
         test_4_preset_file_is_the_classroom_workflow,
         test_5_offscreen_lab_walkthrough,
+        test_6_classroom_preset_cuts_a_declining_channel,
     ]
     for fn in tests:
         fn()

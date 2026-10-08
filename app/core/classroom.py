@@ -81,10 +81,13 @@ def gate(step_id: str, snap: dict) -> tuple[bool, str]:
         return False, "order"
     if step_id == "run":
         done = int(snap.get("steps_done") or 0) > 0 and not snap.get("interrupted")
-        if ordered and done:
+        completed = (snap.get("completed_name") or "").strip()
+        if ordered and done and completed == PRESET_NAME:
             return True, ""
         if snap.get("interrupted"):
             return False, "run_interrupted"
+        if ordered and done and completed and completed != PRESET_NAME:
+            return False, "run_other"
         return False, "run_none"
     if step_id == "views":
         if views_ok(snap.get("tab_sequence")):

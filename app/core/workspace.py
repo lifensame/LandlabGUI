@@ -22,6 +22,7 @@ class Workspace:
         self.history: list = []           # 每次 (步数, 平均高程, 最大高程) 记录
         self.steps_done = 0               # 最近一次运行实际完成的步数
         self.interrupted = False          # 最近一次运行是否被用户中断
+        self.completed_name = None        # 最近一次完整跑完的工作流名称；中断或失败则为空
         self.log_fn = print               # GUI 注入的日志函数
         self.dt = 1.0                     # 当前时间步长(yr)：引擎在时间循环中注入，
                                           # 插件按 物理量×workspace.dt 施加通量
