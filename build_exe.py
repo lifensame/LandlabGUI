@@ -11,7 +11,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def main():
-    subprocess.check_call([
+    cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
         "--clean",
@@ -24,11 +24,18 @@ def main():
         "--hidden-import", "landlab.plot",
         "--collect-all", "landlab",
         "--collect-data", "matplotlib",
-        os.path.join(ROOT, "main.py"),
-    ])
+    ]
+    cache = os.path.join(ROOT, "app", "core", "components_cache.json")
+    if os.path.isfile(cache):
+        # 打进包里，启动就能读缓存，不必在界面线程重扫全部组件。
+        cmd.extend(["--add-data", cache + os.pathsep + os.path.join("app", "core")])
+    cmd.append(os.path.join(ROOT, "main.py"))
+    subprocess.check_call(cmd)
     # 插件/预设/文档放到 exe 旁边，方便直接编辑与热加载
     import shutil
     dist = os.path.join(ROOT, "dist", "LandlabGUI")
+    if os.path.isfile(cache):
+        shutil.copy2(cache, os.path.join(dist, "components_cache.json"))
     for folder in ("plugins", "presets", "docs"):
         src = os.path.join(ROOT, folder)
         dst = os.path.join(dist, folder)

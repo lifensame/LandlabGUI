@@ -23,9 +23,8 @@ import re
 
 import numpy as np
 
-# landlab 的导入较慢（约数秒），在此模块内一次性完成
-import landlab.components as _ll_components
-from landlab import Component as _Component
+# 不要在模块导入时加载 landlab.components。那一步会把全部组件拉进
+# 界面线程，缓存命中时窗口会白等数秒。只有缓存缺失或过期才在扫描函数里导入。
 
 # ---------------------------------------------------------------
 # 分类：按组件所在模块名映射到中文分类
@@ -150,11 +149,85 @@ _VAR_KW_EXTRA = {
 
 def _iter_component_classes():
     """枚举 landlab.components 命名空间下的全部组件类（CLI `landlab list` 同款做法）。"""
-    for name in dir(_ll_components):
-        obj = getattr(_ll_components, name)
-        if (inspect.isclass(obj) and issubclass(obj, _Component)
-                and obj is not _Component and obj.__module__.startswith("landlab")):
+    import landlab.components as llc
+    from landlab import Component
+    for name in dir(llc):
+        obj = getattr(llc, name)
+        if (inspect.isclass(obj) and issubclass(obj, Component)
+                and obj is not Component and obj.__module__.startswith("landlab")):
             yield name, obj
+
+
+def _landlab_version() -> str:
+    """读已安装的 landlab 版本，不导入 landlab.components。"""
+    try:
+        from importlib.metadata import version
+        return version("landlab")
+    except Exception:
+        try:
+            return getattr(importlib.import_module("landlab"), "__version__", "unknown")
+        except Exception:
+            return "unknown"
+
+
+def _cache_paths() -> list[str]:
+    """开发目录、打包后模块旁、exe 旁都认这份缓存。"""
+    from .plugin_loader import app_root
+    raw = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "components_cache.json"),
+        os.path.join(app_root(), "components_cache.json"),
+        os.path.join(app_root(), "app", "core", "components_cache.json"),
+    ]
+    out, seen = [], set()
+    for path in raw:
+        key = os.path.abspath(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
+
+
+def _read_cache(path: str, version: str):
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            cache = json.load(handle)
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+    comps = cache.get("components")
+    if not isinstance(comps, dict) or len(comps) < 80:
+        return None
+    if cache.get("_meta", {}).get("landlab_version") != version:
+        return None
+    return comps
+
+
+def cached_components():
+    """有效缓存则返回 schema 字典，否则 None。不导入 landlab.components。"""
+    version = _landlab_version()
+    for path in _cache_paths():
+        comps = _read_cache(path, version)
+        if comps is not None:
+            return comps
+    return None
+
+
+def _write_cache(schemas: dict, version: str):
+    payload = {"_meta": {"landlab_version": version,
+                         "generated": __import__("time").strftime("%Y-%m-%d")},
+               "components": schemas}
+    for path in _cache_paths():
+        try:
+            folder = os.path.dirname(path)
+            if folder:
+                os.makedirs(folder, exist_ok=True)
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=1)
+            return
+        except OSError:
+            continue
 
 
 def _categorize(cls) -> str:
@@ -326,19 +399,13 @@ def scan_all_components(force: bool = False) -> dict:
 
     缓存文件结构: {"_meta": {"landlab_version": ...}, "components": {...}}；
     landlab 版本不一致时视为过期自动重建（否则升级后表单与真实签名不符）。
+    命中缓存时不导入 landlab.components。
     """
-    cache_path = os.path.join(os.path.dirname(__file__), "components_cache.json")
-    this_version = getattr(_ll_components, "__landlab_version__", None) or         getattr(importlib.import_module("landlab"), "__version__", "unknown")
-    if not force and os.path.exists(cache_path):
-        try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                cache = json.load(f)
-            comps = cache.get("components", {})
-            meta_ok = cache.get("_meta", {}).get("landlab_version") == this_version
-            if meta_ok and len(comps) >= 80:
-                return comps
-        except Exception:
-            pass
+    if not force:
+        cached = cached_components()
+        if cached is not None:
+            return cached
+    this_version = _landlab_version()
     schemas = {}
     for name, cls in _iter_component_classes():
         try:
@@ -349,14 +416,7 @@ def scan_all_components(force: bool = False) -> dict:
                              "params": [], "input_fields": [], "output_fields": [],
                              "step_style": "analysis", "cite_as": "",
                              "unit_agnostic": True, "broken": True}
-    try:
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump({"_meta": {"landlab_version": this_version,
-                                  "generated": __import__("time").strftime("%Y-%m-%d")},
-                       "components": schemas},
-                      f, ensure_ascii=False, indent=1)
-    except OSError:
-        pass
+    _write_cache(schemas, this_version)
     return schemas
 
 

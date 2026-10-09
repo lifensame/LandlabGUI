@@ -35,22 +35,27 @@ import traceback
 
 import numpy as np
 
-import landlab.components as llc
-from landlab import (RasterModelGrid, HexModelGrid, VoronoiDelaunayGrid,
-                     RadialModelGrid, FramedVoronoiGrid, IcosphereGlobalGrid)
-from landlab.io import esri_ascii
-
 from .i18n import tr
 from .introspection import _json_safe
 
-_GRID_CLASSES = {
-    "RasterModelGrid": RasterModelGrid,
-    "HexModelGrid": HexModelGrid,
-    "VoronoiDelaunayGrid": VoronoiDelaunayGrid,
-    "RadialModelGrid": RadialModelGrid,
-    "FramedVoronoiGrid": FramedVoronoiGrid,
-    "IcosphereGlobalGrid": IcosphereGlobalGrid,
-}
+
+def _grid_classes() -> dict:
+    """建网格时再导入 landlab，避免启动界面就被组件包堵住。"""
+    from landlab import (RasterModelGrid, HexModelGrid, VoronoiDelaunayGrid,
+                         RadialModelGrid, FramedVoronoiGrid, IcosphereGlobalGrid)
+    return {
+        "RasterModelGrid": RasterModelGrid,
+        "HexModelGrid": HexModelGrid,
+        "VoronoiDelaunayGrid": VoronoiDelaunayGrid,
+        "RadialModelGrid": RadialModelGrid,
+        "FramedVoronoiGrid": FramedVoronoiGrid,
+        "IcosphereGlobalGrid": IcosphereGlobalGrid,
+    }
+
+
+def _landlab_components():
+    import landlab.components as llc
+    return llc
 
 
 class Engine:
@@ -181,7 +186,7 @@ class Engine:
             rng = _np.random.default_rng(42)
             params["x"] = rng.uniform(0, width, npts)
             params["y"] = rng.uniform(0, height, npts)
-        cls = _GRID_CLASSES.get(gtype)
+        cls = _grid_classes().get(gtype)
         if cls is None:
             raise ValueError(f"未知网格类型: {gtype}")
         grid = cls(**params)
@@ -192,6 +197,7 @@ class Engine:
         self.log(tr("新网格: {0}, 节点数 {1}").format(gtype, grid.number_of_nodes))
 
     def _load_dem(self, path: str):
+        from landlab.io import esri_ascii
         with open(path) as f:
             grid = esri_ascii.load(f, at="node", name="topographic__elevation")
         self.ws.set_grid(grid, {"type": "RasterModelGrid(来自DEM)", "params": {"dem": path}})
@@ -223,7 +229,7 @@ class Engine:
         name = step["component"]
         sid = step.get("id", name)
         params = step.get("params", {}) or {}
-        cls = getattr(llc, name, None)
+        cls = getattr(_landlab_components(), name, None)
         if cls is None:
             raise ValueError(f"landlab 中找不到组件: {name}")
 

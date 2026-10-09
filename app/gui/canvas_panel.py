@@ -268,6 +268,7 @@ class CanvasPanel(QTabWidget):
         self._pick_points = []
         self._custom_profiles = []          # [(label, dists, elevs)]
         self._dirty = set(range(6))         # 待刷新标签页（性能：只画可见页）
+        self._terrain_img = None            # 运行中复用的地形 imshow
         self.currentChanged.connect(self._on_tab_changed)
         for tab in (self.tab_terrain, self.tab_area):
             tab.canvas.mpl_connect("button_press_event", self._on_click)
@@ -287,6 +288,56 @@ class CanvasPanel(QTabWidget):
         for i in range(self.count()):
             if i != idx:
                 self._dirty.add(i)
+
+    def update_running(self, ws):
+        """运行中的快照。只便宜更新当前看得到的地形图。
+
+        面积、坡度-面积、剖面、历史和 3D 都不在这里重建。它们标成待刷新，
+        等这次运行结束（update_all）或用户切到该页时再画。
+        """
+        self._ws = ws
+        if not ws.has_grid:
+            return
+        if not ("topographic__elevation" in ws.at_node):
+            return
+        shown = self.field_combo.currentText()
+        self._refresh_field_combo()
+        for i in range(self.count()):
+            self._dirty.add(i)
+        if self.currentIndex() != 0:
+            return
+        if self.field_combo.currentText() != shown or not self._paint_terrain_fast():
+            self._render_tab(0)
+
+    def _paint_terrain_fast(self) -> bool:
+        """用 set_data 更新已有地形图。网格变了或还没画过就返回 False。"""
+        img = self._terrain_img
+        ws = self._ws
+        tab = self.tab_terrain
+        if img is None or getattr(img, "axes", None) is not tab.ax:
+            return False
+        field = self.field_combo.currentText() or "topographic__elevation"
+        if field not in ws.at_node:
+            return False
+        vals = np.asarray(ws.at_node[field], dtype=float)
+        grid = ws.grid
+        shape = getattr(grid, "shape", None)
+        if shape is None or len(shape) != 2 or grid.number_of_nodes != int(shape[0] * shape[1]):
+            return False
+        current = img.get_array()
+        if current is None or tuple(np.shape(current)) != (int(shape[0]), int(shape[1])):
+            return False
+        finite = np.isfinite(vals)
+        if not finite.any():
+            return False
+        vmin = float(np.min(vals[finite]))
+        vmax = float(np.max(vals[finite]))
+        if vmax <= vmin:
+            vmax = vmin + 1e-9
+        img.set_data(vals.reshape(shape))
+        img.set_clim(vmin, vmax)
+        tab.canvas.draw_idle()
+        return True
 
     def _render_tab(self, idx: int):
         """渲染指定标签页（只画看得到的那个）。渲染异常不影响界面运行。"""
@@ -327,7 +378,8 @@ class CanvasPanel(QTabWidget):
                 shown = ws.at_node[field]
             elif field != "topographic__elevation":
                 fallback = True
-            plots.draw_field(ax, grid, shown, colorbar_fig=self.tab_terrain.fig)
+            image = plots.draw_field(ax, grid, shown, colorbar_fig=self.tab_terrain.fig)
+            self._terrain_img = image if image is not None and hasattr(image, "set_data") else None
             if fallback:
                 ax.text(0.5, 0.02, tr("该字段尚无数据（先运行产生它的组件）"),
                         transform=ax.transAxes, ha="center", color="orange")

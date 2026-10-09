@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 
 import numpy as np
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFileDialog, QHBoxLayout,
                                QLabel, QLineEdit, QMessageBox, QPushButton,
                                QRadioButton, QVBoxLayout, QWidget)
@@ -88,11 +88,13 @@ class ClassroomLabPanel(QWidget):
         self.name_edit = QLineEdit()
         self.name_edit.setPlaceholderText(tr("交给老师的名字"))
         self.name_edit.textChanged.connect(lambda _text: self.refresh())
+        name_row.addWidget(self.name_edit, stretch=1)
         self.name_row_wrap = QWidget()
         self.name_row_wrap.setLayout(name_row)
         root.addWidget(self.name_row_wrap)
 
-        actions = QHBoxLayout()
+        # 窄停靠条里四个按钮横排会把「开始运行」挤出可视区域，改成纵向整行按钮。
+        actions = QVBoxLayout()
         self.btn_load = QPushButton(tr("载入课堂预设"))
         self.btn_load.clicked.connect(self._load_preset)
         self.btn_run = QPushButton(tr("开始运行"))
@@ -180,8 +182,33 @@ class ClassroomLabPanel(QWidget):
             self.btn_run.setVisible(step == 3)
             self.btn_export.setVisible(step == 6)
             self.btn_check.setVisible(step < total)
+            self._reveal_current(step)
         finally:
             self._in_refresh = False
+
+    def _reveal_current(self, step: int):
+        """小高度停靠条里，把这一步要点的控件滚进可视区域。"""
+        if step == 0:
+            target = self.goal_box
+        elif step == 1:
+            target = self.btn_load
+        elif step == 3:
+            target = self.btn_run
+        elif step == 5:
+            target = self.quiz_box
+        elif step >= 6:
+            target = self.btn_export if self.name_edit.text().strip() else self.name_edit
+        else:
+            target = self.btn_check
+
+        def go(widget=target):
+            parent = self.parent()
+            scroll = parent.parent() if parent is not None else None
+            ensure = getattr(scroll, "ensureWidgetVisible", None)
+            if ensure is not None and widget is not None:
+                ensure(widget, 24, 24)
+
+        QTimer.singleShot(0, go)
 
     def _on_goal(self, checked: bool):
         self.acknowledged_goal = bool(checked)

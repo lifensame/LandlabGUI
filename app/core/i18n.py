@@ -446,6 +446,13 @@ _STR_EN = {
     "插件已重载: 共 {0} 个自定义功能": "Plugins reloaded: {0} custom feature(s)",
     "组件库: {0} 个 landlab 组件, {1} 个自定义插件":
         "Library: {0} landlab components, {1} plugins",
+    "请稍候": "Please wait",
+    "组件库正在后台扫描，请稍后再运行。":
+        "The component library is still scanning. Run again when it finishes.",
+    "正在读取组件库...": "Reading the component library...",
+    "组件库缓存不在，正在后台扫描 landlab 组件，窗口可以先用。":
+        "Component cache is missing. Scanning landlab components in the background; the window is usable now.",
+    "组件库扫描没有得到组件。": "Component scan returned nothing.",
     # ---- 表单分组 / AI 助手 ----
     "核心参数": "Core Parameters",
     "高级参数（{0} 项）": "Advanced ({0} items)",

@@ -165,6 +165,12 @@ def test_5_offscreen_lab_walkthrough():
         app.processEvents()
         assert win.lab_panel is not None, "第一次启动应打开课堂实验"
         panel = win.lab_panel
+        from PySide6.QtGui import QGuiApplication
+        screen = QGuiApplication.primaryScreen().availableGeometry()
+        assert win.lab_dock is not None and not win.lab_dock.isFloating()
+        app.processEvents()
+        goal = panel.goal_box.mapToGlobal(panel.goal_box.rect().center())
+        assert screen.contains(goal), (goal, screen, win.geometry(), win.lab_dock.geometry())
         assert current_step(panel.snapshot()) == 0
 
         panel.refresh()
@@ -186,6 +192,10 @@ def test_5_offscreen_lab_walkthrough():
         win.workflow_panel.steps = saved
         panel.refresh()
         assert current_step(panel.snapshot()) == 3
+        app.processEvents()
+        assert panel.btn_run.isVisible() and panel.btn_run.isEnabled()
+        run_at = panel.btn_run.mapToGlobal(panel.btn_run.rect().center())
+        assert screen.contains(run_at), (run_at, screen, win.lab_dock.geometry())
 
         panel.note_tab(TAB_SLOPE_AREA)
         assert panel.tab_sequence == []
@@ -217,6 +227,11 @@ def test_5_offscreen_lab_walkthrough():
         assert win.ws.steps_done == 40
         assert current_step(panel.snapshot()) == 4
         assert panel.tab_sequence[0] == TAB_TERRAIN
+        log_text = win.console.text.toPlainText()
+        assert log_text.count("=== 开始运行工作流") == 1, log_text
+        bar = win.canvas.tabBar()
+        slope_at = bar.mapToGlobal(bar.tabRect(TAB_SLOPE_AREA).center())
+        assert screen.contains(slope_at), (slope_at, screen, win.geometry())
 
         win.canvas.setCurrentIndex(TAB_SLOPE_AREA)
         app.processEvents()
@@ -225,6 +240,8 @@ def test_5_offscreen_lab_walkthrough():
         panel._quiz_buttons[0].setChecked(True)
         app.processEvents()
         assert current_step(panel.snapshot()) == 6
+        assert panel.name_edit.isVisible()
+        assert panel.name_edit.parent() is panel.name_row_wrap
 
         panel.export_note(os.path.join(tempfile.gettempdir(), "should-not-write.md"))
         assert current_step(panel.snapshot()) == 6
@@ -243,8 +260,10 @@ def test_5_offscreen_lab_walkthrough():
 
         src_dir = inspect.getsource(MainWindow.open_plugin_dir)
         src_doc = inspect.getsource(MainWindow._open_plugin_doc)
+        src_run = inspect.getsource(MainWindow.run_workflow)
         assert "startfile" not in src_dir
         assert "startfile" not in src_doc
+        assert src_run.find("self.worker.start()") < src_run.find("setPriority")
         win.open_plugin_dir()
 
         warnings.clear()

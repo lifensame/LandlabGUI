@@ -58,6 +58,20 @@ def test_cache_speeds_up():
     assert perf_counter() - t0 < 2.0, "缓存读取应秒级返回"
 
 
+def test_valid_cache_does_not_walk_components():
+    """缓存有效时不得再导入并遍历 landlab.components。"""
+    import app.core.introspection as intro
+    called = []
+    original = intro._iter_component_classes
+    intro._iter_component_classes = lambda: called.append(True) or iter(())
+    try:
+        schemas = intro.scan_all_components()
+    finally:
+        intro._iter_component_classes = original
+    assert len(schemas) >= 80
+    assert not called
+
+
 if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:

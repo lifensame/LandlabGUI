@@ -11,11 +11,12 @@ import traceback
 
 import numpy as np
 from PySide6.QtCore import QProcess, QSettings, Qt, QThread, QTimer, QUrl
-from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QDockWidget, QFileDialog, QLabel, QLineEdit,
+from PySide6.QtGui import QAction, QDesktopServices, QGuiApplication, QKeySequence
+from PySide6.QtWidgets import (QDockWidget, QFileDialog, QFrame, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMainWindow, QMenu,
-                               QMessageBox, QProgressBar, QSplitter, QTabWidget,
-                               QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+                               QMessageBox, QProgressBar, QScrollArea, QSplitter,
+                               QTabWidget, QTreeWidget, QTreeWidgetItem,
+                               QVBoxLayout, QWidget)
 
 from ..core.engine import Engine
 from ..core.plugin_loader import app_root as _app_root, plugins_dir
@@ -50,7 +51,8 @@ class MainWindow(QMainWindow):
         # ---- 核心对象 ----
         self.ws = Workspace()
         self._boot_queue: list[str] = []
-        self.registry = Registry(APP_ROOT, log=self._boot_log)
+        # 有缓存就直接用；没有缓存也不在这里重扫，窗口先出来。
+        self.registry = Registry(APP_ROOT, log=self._boot_log, defer_component_scan=True)
         self.worker: SimWorker | None = None
         self.func_worker: FuncWorker | None = None
         self.anim_worker: AnimWorker | None = None
@@ -87,7 +89,9 @@ class MainWindow(QMainWindow):
             self.console.log(m)
         self._boot_queue.clear()
         self.log(tr("Landlab 地貌模拟工作台已启动（深色主题）"))
-        self.log(tr("组件库: {0} 个 landlab 组件, {1} 个自定义插件").format(len(self.registry.schemas), len(self.registry.plugins)))
+        if self.registry.components_ready:
+            self.log(tr("组件库: {0} 个 landlab 组件, {1} 个自定义插件").format(
+                len(self.registry.schemas), len(self.registry.plugins)))
         self.log(tr("课堂实验: 打开帮助菜单里的「课堂实验」，用一节课走完河流下切；想自己探索可看「新手引导」。"))
 
         # 走完课堂实验或明确跳过之后才记 classroom_seen。旧的 wizard_seen
@@ -98,6 +102,9 @@ class MainWindow(QMainWindow):
 
         # 启动 3 秒后静默检查更新（仅在存在新版本时友好提醒）
         QTimer.singleShot(3000, lambda: self.check_for_updates(interactive=False))
+        self._fit_window_to_screen()
+        if not self.registry.components_ready:
+            self._start_component_scan()
 
     # ================================================== 日志
     def _boot_log(self, msg: str):
@@ -149,6 +156,8 @@ class MainWindow(QMainWindow):
         dock.setObjectName("components_dock")
         dock.setWidget(tabs)
         dock.setFeatures(QDockWidget.DockWidgetMovable)
+        dock.setMinimumWidth(200)
+        self.components_dock = dock
         self.addDockWidget(Qt.LeftDockWidgetArea, dock)
 
     def _fill_tree(self, filter_text: str):
@@ -207,6 +216,9 @@ class MainWindow(QMainWindow):
         splitter.addWidget(center_tabs)
         splitter.addWidget(self.canvas)
         splitter.setSizes([680, 720])
+        # 小屏幕要能把窗口收进屏幕；最小尺寸跟提示脱钩，避免 1155×850 的下限。
+        self.workflow_panel.setMinimumSize(280, 160)
+        self.canvas.setMinimumSize(220, 160)
         self.setCentralWidget(splitter)
 
         dock = QDockWidget(tr("控制台"), self)
@@ -431,6 +443,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, ev):
         self._closing = True
+        scan = getattr(self, "_scan_worker", None)
+        if scan is not None and scan.isRunning():
+            scan.wait(5000)
         workers = [self.worker, self.func_worker, self.anim_worker,
                    getattr(self, "sweep_worker", None)]
         if any(w is not None and w.isRunning() for w in workers):
@@ -595,6 +610,11 @@ class MainWindow(QMainWindow):
         if self._busy():
             QMessageBox.warning(self, tr("忙碌"), tr("有任务正在后台运行，请等待或停止"))
             return
+        if not self.registry.components_ready:
+            QMessageBox.information(
+                self, tr("请稍候"),
+                tr("组件库正在后台扫描，请稍后再运行。"))
+            return
         if not self.workflow_panel.rebuild_check.isChecked() and not self.ws.has_grid:
             QMessageBox.warning(self, tr("缺少网格"),
                                 tr("请先 菜单[网格]->新建网格，或载入预设（运行时自动建网格）"))
@@ -627,27 +647,35 @@ class MainWindow(QMainWindow):
             if btn != QMessageBox.Yes:
                 return
 
-        self.log(tr("=== 开始运行工作流: {0} ===").format(wf.get("name", "未命名")))
         self._frames_clear()
         self._current_wf = wf
 
         flag = StopFlag()
-        engine = Engine(self.ws, self.registry.plugins, log=self.log,
+        engine = Engine(self.ws, self.registry.plugins, log=self._engine_log,
                         progress=self._engine_progress, snapshot=self._engine_snapshot,
                         stop_flag=flag)
         self.worker = SimWorker(engine, wf)
         self.worker.flag = flag
         self._last_progress_pct = -1
-        try:      # 优先级只是优化项：任何环境下都不允许它弄挂运行流程
-            self.worker.setPriority(QThread.Priority.LowPriority)
-        except Exception:
-            pass
         self.worker.sig_log.connect(self.log)
         self.worker.sig_progress.connect(self._on_progress)
         self.worker.sig_snapshot.connect(self._on_snapshot)
         self.worker.sig_done.connect(self._on_done)
         self._set_running(True)
         self.worker.start()
+        # 必须在 start() 之后：线程还没跑时 setPriority 只会警告，个别环境还会搅乱启动。
+        try:
+            self.worker.setPriority(QThread.Priority.LowPriority)
+        except Exception:
+            pass
+
+    def _engine_log(self, msg: str):
+        """引擎在工作线程里打日志，只能经信号回到界面线程。"""
+        worker = self.worker
+        if worker is not None:
+            worker.sig_log.emit(str(msg))
+        else:
+            self.log(str(msg))
 
     def _engine_progress(self, i, n):
         """进度节流：只在百分比变化时发信号（2000 步从 2000 次跨线程事件
@@ -697,11 +725,19 @@ class MainWindow(QMainWindow):
             self._refresh_timer.start()
 
     def _do_canvas_refresh(self):
-        """节流后的实际绘制（≤3.3 次/秒），期间被跳过的快照只更新数据不重绘。"""
+        """节流后的实际绘制（≤3.3 次/秒）。
+
+        运行过程中只便宜更新可见的地形图。跑完或切标签再画其余视图，
+        避免每个快照都在界面线程重建 3D 和坡度-面积。
+        """
         self._pending_z = None
         if not self.ws.has_grid:
             return
-        self.canvas.update_all(self.ws)
+        running = self.worker is not None and self.worker.isRunning()
+        if running:
+            self.canvas.update_running(self.ws)
+        else:
+            self.canvas.update_all(self.ws)
 
     def _collect_frame(self, z):
         shape = getattr(self.ws.grid, "shape", None)
@@ -746,6 +782,8 @@ class MainWindow(QMainWindow):
         self._update_status_pills()
 
     def _on_done(self, ok: bool, msg: str):
+        self._refresh_timer.stop()
+        self._pending_z = None
         self._set_running(False)
         self.log(tr("运行结束: {0}").format(msg) if ok else tr("运行失败: {0}").format(msg))
         if self.ws.has_grid:
@@ -979,7 +1017,11 @@ class MainWindow(QMainWindow):
         self.load_preset_by_name(item.text())
 
     def open_classroom_lab(self):
-        """打开课堂实验停靠条。第一次启动和帮助菜单共用。"""
+        """打开课堂实验停靠条。第一次启动和帮助菜单共用。
+
+        停靠在窗口左侧，不单独浮出。以前浮在 480×640 且贴着过宽主窗口的右侧，
+        小屏幕上整块停靠条（含开始运行）会落在屏幕外面。
+        """
         if getattr(self, "_closing", False):
             return
         first = self.lab_panel is None
@@ -988,14 +1030,69 @@ class MainWindow(QMainWindow):
             self.lab_panel = ClassroomLabPanel(self)
             self.lab_dock = QDockWidget(tr("课堂实验"), self)
             self.lab_dock.setObjectName("classroom_lab")
-            self.lab_dock.setWidget(self.lab_panel)
+            scroll = QScrollArea()
+            scroll.setObjectName("classroom_lab_scroll")
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QFrame.Shape.NoFrame)
+            scroll.setWidget(self.lab_panel)
+            self.lab_dock.setWidget(scroll)
             self.lab_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
-            self.addDockWidget(Qt.RightDockWidgetArea, self.lab_dock)
+            self.lab_dock.setMinimumWidth(260)
+            self.addDockWidget(Qt.LeftDockWidgetArea, self.lab_dock)
+            components = getattr(self, "components_dock", None)
+            if components is not None:
+                self.splitDockWidget(self.lab_dock, components, Qt.Vertical)
+        self.lab_dock.setFloating(False)
+        self._fit_window_to_screen()
         self.lab_dock.show()
         self.lab_dock.raise_()
-        if first:
-            self.lab_dock.setFloating(True)
-            self.lab_dock.resize(480, 640)
+
+    def _fit_window_to_screen(self):
+        """窗口比屏幕大时收到屏幕里，避免右侧控件画到看不见的地方。"""
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return
+        avail = screen.availableGeometry()
+        if avail.width() < 200 or avail.height() < 200:
+            return
+        self.setMinimumSize(min(720, avail.width()), min(480, avail.height()))
+        geo = self.geometry()
+        frame = self.frameGeometry()
+        extra_w = max(0, frame.width() - geo.width())
+        extra_h = max(0, frame.height() - geo.height())
+        max_w = max(320, avail.width() - extra_w)
+        max_h = max(240, avail.height() - extra_h)
+        w = min(geo.width(), max_w)
+        h = min(geo.height(), max_h)
+        x = min(max(geo.x(), avail.x()), avail.x() + avail.width() - w - extra_w)
+        y = min(max(geo.y(), avail.y()), avail.y() + avail.height() - h - extra_h)
+        if (x, y, w, h) != (geo.x(), geo.y(), geo.width(), geo.height()):
+            self.setGeometry(x, y, w, h)
+
+    def _start_component_scan(self):
+        """缓存缺失时在工作线程重建组件目录，不挡住第一帧。"""
+        from ..core.introspection import scan_all_components
+        self._set_status(tr("正在读取组件库..."))
+        self.log(tr("组件库缓存不在，正在后台扫描 landlab 组件，窗口可以先用。"))
+        worker = FuncWorker(scan_all_components, parent=self)
+        self._scan_worker = worker
+        worker.sig_result.connect(self._on_components_scanned)
+        worker.sig_log.connect(self.log)
+        worker.start()
+
+    def _on_components_scanned(self, schemas):
+        if not isinstance(schemas, dict) or not schemas:
+            self._set_status(tr("就绪"))
+            self.log(tr("组件库扫描没有得到组件。"))
+            return
+        self.registry.apply_schemas(schemas)
+        self._fill_tree(self.search.text() if hasattr(self, "search") else "")
+        self._set_status(tr("就绪"))
+        self.log(tr("组件库: {0} 个 landlab 组件, {1} 个自定义插件").format(
+            len(self.registry.schemas), len(self.registry.plugins)))
+        panel = getattr(self, "lab_panel", None)
+        if panel is not None:
+            panel.refresh()
 
     # ================================================== 插件/帮助
     def reload_plugins(self):

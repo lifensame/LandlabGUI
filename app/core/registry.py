@@ -29,19 +29,46 @@ class Entry:
 
 
 class Registry:
-    """启动时扫描一次，"重载插件"时刷新插件部分。"""
+    """启动时扫描一次，"重载插件"时刷新插件部分。
 
-    def __init__(self, app_root: str = None, log=print):
+    defer_component_scan=True 时，没有有效缓存就不在调用线程里重扫，
+    留给界面先显示，再在后台线程调用 apply_schemas。
+    """
+
+    def __init__(self, app_root: str = None, log=print, *, defer_component_scan: bool = False):
         self.log = log
         self.schemas: dict = {}
         self.plugins: dict = {}
         self.entries: dict[str, Entry] = {}
         self.app_root = app_root
+        self.defer_component_scan = defer_component_scan
+        self.components_ready = False
         self.reload()
 
     def reload(self, force_rescan: bool = False):
-        self.schemas = introspection.scan_all_components(force=force_rescan)
+        if force_rescan:
+            self.schemas = introspection.scan_all_components(force=True)
+            self.components_ready = True
+        else:
+            cached = introspection.cached_components()
+            if cached is not None:
+                self.schemas = cached
+                self.components_ready = True
+            elif self.defer_component_scan and self.schemas:
+                self.components_ready = True
+            elif self.defer_component_scan:
+                self.schemas = {}
+                self.components_ready = False
+            else:
+                self.schemas = introspection.scan_all_components()
+                self.components_ready = True
         self.plugins = plugin_loader.load_plugins(self.app_root, log=self.log)
+        self._rebuild()
+
+    def apply_schemas(self, schemas: dict):
+        """后台扫描完成后，在界面线程换上组件目录。"""
+        self.schemas = dict(schemas or {})
+        self.components_ready = bool(self.schemas)
         self._rebuild()
 
     def _rebuild(self):
