@@ -1,6 +1,6 @@
 """Build a Windows installer for LandlabGUI from Linux or Windows.
 
-The result is dist/LandlabGUI-2.2.0-win64-setup.exe. It bundles CPython 3.12
+The result is dist/LandlabGUI-2.2.1-win64-setup.exe. It bundles CPython 3.12
 and the Windows wheels for PySide6, landlab, and their runtime dependencies.
 On Windows, double-click the installer, then open LandlabGUI from the Start menu.
 """
@@ -15,7 +15,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 WHEEL_DIR = os.path.join(ROOT, "packaging", "wheels")
-INSTALLER = os.path.join(ROOT, "dist", "LandlabGUI-2.2.0-win64-setup.exe")
+INSTALLER = os.path.join(ROOT, "dist", "LandlabGUI-2.2.1-win64-setup.exe")
 
 REQUIREMENTS = [
     "landlab==2.11.0",
@@ -48,7 +48,7 @@ def build() -> None:
     os.chdir(ROOT)
     download_wheels()
     subprocess.check_call([sys.executable, "-m", "nsist", "packaging/installer.cfg"])
-    built = os.path.join(ROOT, "build", "pynsist", "LandlabGUI-2.2.0-win64-setup.exe")
+    built = os.path.join(ROOT, "build", "pynsist", "LandlabGUI-2.2.1-win64-setup.exe")
     os.makedirs(os.path.dirname(INSTALLER), exist_ok=True)
     shutil.copy2(built, INSTALLER)
     print("\n安装包:", INSTALLER)
